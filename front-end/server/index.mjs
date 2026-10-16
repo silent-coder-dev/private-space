@@ -5,7 +5,7 @@
 // Environment variables (all optional):
 //   PORT              port to listen on (default 8080)
 //   HOST              host to bind (default 0.0.0.0)
-//   USSPACE_DATA_DIR  where encrypted rooms are saved (default ./.usspace-data)
+//   USSPACE_DATA_DIR  save encrypted rooms to this folder (default: memory only — nothing is written to disk)
 //   ALLOWED_ORIGINS   comma-separated list of sites allowed to connect to /ws (default: same site only)
 //   TRUST_PROXY       set to "1" behind a proxy/load balancer so rate limits use the real client IP
 
@@ -14,6 +14,7 @@ import http from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
+import { listMusic } from "./music.mjs";
 import { createRelay } from "./relay.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,6 +38,15 @@ const MIME = {
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
   ".woff2": "font/woff2",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".ogg": "audio/ogg",
+  ".oga": "audio/ogg",
+  ".opus": "audio/ogg",
+  ".wav": "audio/wav",
+  ".flac": "audio/flac",
+  ".webm": "audio/webm",
   ".webmanifest": "application/manifest+json",
 };
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", ".webmanifest"]);
@@ -51,6 +61,7 @@ const securityHeaders = (/** @type {http.IncomingMessage} */ req) => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
+      "media-src 'self' data: blob:",
       `connect-src 'self' ws://${host} wss://${host}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
@@ -59,7 +70,8 @@ const securityHeaders = (/** @type {http.IncomingMessage} */ req) => {
     ].join("; "),
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    // Camera + microphone are allowed for this site only (photos, videos and calls).
+    "Permissions-Policy": "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()",
     "Cross-Origin-Opener-Policy": "same-origin",
     "X-Frame-Options": "DENY",
     ...(req.headers["x-forwarded-proto"] === "https" ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
@@ -89,6 +101,10 @@ const server = http.createServer((req, res) => {
     return;
   }
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
+  if (pathname === "/music/manifest.json") {
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" }).end(JSON.stringify(listMusic(join(dist, "music"))));
+    return;
+  }
   if (pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain", "Cache-Control": "no-store" }).end("ok");
     return;
@@ -116,13 +132,29 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  res.writeHead(200, headers);
+  // Range requests let the music player seek and let phones stream big audio files.
+  const size = statSync(file).size;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+  if (range && (range[1] || range[2])) {
+    const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+    const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+    if (start >= size || start > end) {
+      res.writeHead(416, { "Content-Range": `bytes */${size}` }).end();
+      return;
+    }
+    res.writeHead(206, { ...headers, "Accept-Ranges": "bytes", "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": end - start + 1 });
+    if (req.method === "HEAD") res.end();
+    else createReadStream(file, { start, end }).pipe(res);
+    return;
+  }
+  res.writeHead(200, { ...headers, "Accept-Ranges": "bytes", "Content-Length": size });
   if (req.method === "HEAD") res.end();
   else createReadStream(file).pipe(res);
 });
 
 const relay = createRelay({
-  dataDir: process.env.USSPACE_DATA_DIR || join(root, ".usspace-data"),
+  // Memory only unless you ask for a folder: when a room is closed (or the server restarts) nothing is left behind.
+  dataDir: process.env.USSPACE_DATA_DIR || null,
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   trustProxy: process.env.TRUST_PROXY === "1",
 });

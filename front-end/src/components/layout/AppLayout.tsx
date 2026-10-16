@@ -44,10 +44,11 @@ const AppLayout = () => {
           <AnimatePresence mode="wait" initial={false} onExitComplete={() => mainRef.current?.scrollTo({ top: 0 })}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.28, ease: EASE_OUT }}
+              initial={{ opacity: 0, y: 24, rotateX: 7, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, rotateX: -4, scale: 0.99 }}
+              transition={{ duration: 0.34, ease: EASE_OUT }}
+              style={{ transformPerspective: 1400, transformOrigin: "50% 0%" }}
               className={fullHeight ? "h-full" : "min-h-full"}
             >
               <Suspense fallback={<PageLoader />}>{outlet}</Suspense>

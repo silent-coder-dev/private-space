@@ -38,51 +38,20 @@ export interface ChatMessage {
   text?: string;
   /** A small, compressed data URL. */
   image?: string;
+  /** A short video clip (data URL). */
+  video?: string;
   at: number;
   reactions: string[];
 }
 
-export interface PlanEvent {
-  id: string;
-  title: string;
-  /** "yyyy-mm-dd" */
-  date: string;
-  /** "HH:mm" (optional) */
-  time?: string;
-  note: string;
-  emoji: string;
-}
-
-export interface Letter {
-  id: string;
-  title: string;
-  content: string;
-  /** The letter stays locked until this day ("yyyy-mm-dd"). */
-  unlockOn: string;
-  createdAt: number;
-  from: Sender;
-  readAt?: number;
-}
-
-export interface Milestone {
-  id: string;
-  title: string;
-  /** "yyyy-mm-dd" */
-  date: string;
-  desc: string;
-  emoji: string;
-}
-
-export interface Song {
-  id: string;
-  title: string;
-  artist: string;
-  /** Length in seconds. */
-  duration: number;
-  link?: string;
-}
-
 /** The shared music player: both phones show the same song at the same second. */
+export interface Song {
+  /** File name in the music folder. */
+  id: string;
+  url: string;
+  title: string;
+}
+
 export interface PlayerDoc {
   songId: string | null;
   playing: boolean;
@@ -112,4 +81,71 @@ export interface TodDoc {
   kind: "truth" | "dare";
   text: string;
   n: number;
+}
+
+export type GameId = "ttt" | "tod" | "memory" | "wyr";
+
+/** The game invitation / session both of you share. */
+export interface GameSession {
+  game: GameId;
+  status: "invited" | "playing";
+  /** Who sent the invite. */
+  by: Sender;
+  at: number;
+}
+
+/** Shared memory match: you take turns; a pair keeps your turn. */
+export interface MemoryDoc {
+  deck: string[];
+  flipped: number[];
+  matched: string[];
+  turn: Sender;
+  points: { me: number; partner: number };
+  round: number;
+}
+
+/** Shared would-you-rather: both pick, then both answers are revealed. */
+export interface WyrDoc {
+  index: number;
+  seed: number;
+  picks: { me: number | null; partner: number | null };
+}
+
+export interface Photo {
+  id: string;
+  src: string;
+  at: number;
+  from: Sender;
+}
+
+/** "Look at this one!" — the photo one of you is showing the other. */
+export interface GalleryView {
+  id: string;
+  by: Sender;
+  at: number;
+}
+
+export interface Stroke {
+  id: string;
+  by: Sender;
+  at: number;
+  tool: "pen" | "neon" | "eraser";
+  color: string;
+  /** Width as a share of the canvas width (0–1). */
+  size: number;
+  /** Flattened x,y pairs, 0–1000. */
+  pts: number[];
+}
+
+export interface Sticker {
+  id: string;
+  by: Sender;
+  at: number;
+  kind: "emoji" | "image";
+  value: string;
+  /** Centre and size as a share of the canvas (0–1). */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }

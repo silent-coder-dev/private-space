@@ -77,6 +77,26 @@ export function removeStore(key: string): void {
   }
 }
 
+/** Every value saved for the current room, keyed without the prefix. */
+export function readAllScoped(): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  try {
+    const prefix = STORAGE_PREFIX + scope;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      try {
+        out[key.slice(prefix.length)] = JSON.parse(window.localStorage.getItem(key) ?? "null");
+      } catch {
+        /* skip broken values */
+      }
+    }
+  } catch {
+    /* storage blocked */
+  }
+  return out;
+}
+
 /** Read a list from storage, change it, and save it back (for writes from other pages). */
 export function updateStore<T>(key: string, fallback: Initial<T>, update: (value: T) => T): boolean {
   return writeStore(key, update(readStore(key, fallback)));

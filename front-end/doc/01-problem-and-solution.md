@@ -1,57 +1,55 @@
 # 1 · The Problem, the Website, the Solution and the Users
 
-> **In one line:** UsSpace is a small, private website where two people who love each other can chat, play, plan, listen to music, write letters and keep their memories, all in one cosy place.
+> **In one line:** UsSpace is a private, locked room for two people who love each other. You chat, call, share photos, draw, play and listen to music together, live on both phones, and when you close the room, everything is deleted.
 
 ---
 
 ## 1.1 What is the problem?
 
-Couples share a lot of small, special moments every day. Today those moments are spread across many apps:
+Couples share many small, special moments every day, but those moments are spread across many apps:
 
 | What couples do | Where it usually happens | What goes wrong |
 | --- | --- | --- |
-| Send sweet messages | WhatsApp, Instagram, SMS | Love notes get lost between work chats, groups and ads. |
-| Plan dates | Calendar apps, notes, screenshots | Plans are hard to find, and no one feels the excitement of a countdown. |
-| Play little games | Separate game apps | They are made for strangers, not for two people in love. |
-| Share "our songs" | Spotify, YouTube | The songs that mean something are mixed with everything else. |
-| Write love letters | Paper, email | You can't easily say "open this on our anniversary". |
-| Remember milestones | Photo gallery | The *story* (first date, first trip, moving in) is not written anywhere. |
-| Say "I'm thinking of you" | A text | It feels small and easy to miss. |
+| Send sweet messages, photos, videos | WhatsApp, Instagram, SMS | Love notes get lost between work chats and groups, and the company may be able to read them. |
+| Call each other | Phone, WhatsApp | Fine, but it's yet another app, and it's not "your" space. |
+| Share photos | Gallery, Drive | No shared album that only the two of you can see, and no way to look at them *together*. |
+| Doodle, play little games | Separate apps | They are made for strangers, not for two people in love. |
+| Listen to "our songs" | Spotify, YouTube | You can't easily play the same song together at the same second. |
+| Say "I miss you" | A text | It feels small and easy to miss. |
 
 So the **problem** is:
 
 1. **Too many apps.** The relationship has no single "home" online.
-2. **No real privacy.** Public social apps are noisy, full of other people, and the company can often read what you send.
+2. **No real privacy.** Public apps are noisy, and your words go through other companies.
 3. **No warmth.** Most tools are built for work, not for love.
-4. **Memories get lost.** Special moments are not saved in one beautiful place.
+4. **No control.** It's hard to truly delete everything when you want to.
 
 ---
 
 ## 1.2 What is the website?
 
-**UsSpace** (also called *"your private haven"*) is a web app made only for **two people**.
+**UsSpace** is a web app made only for **two people**. It works like a private room with a lock:
 
-It works like a private room with a lock:
-
-1. One of you **creates a room**. UsSpace gives you a **secret code** (like `NJ4Q-0JPY-9BBC-ASCS`) and a QR code.
+1. One of you **creates a room** and gets a **secret code** (like `NJ4Q-0JPY-9BBC-ASCS`) and a QR code.
 2. Your partner **joins** by typing the code or scanning the QR.
-3. The room **locks**. Only your two devices can ever be inside.
-4. From then on, everything you do shows up **live on both phones**.
+3. The room **locks** to your two devices. Nobody else can ever get in.
+4. Everything you do shows up **live on both phones**.
+5. When you **close the room**, everything is deleted: on the server and on both phones.
 
-Inside, you get your own little world with **8 rooms**:
+Inside the room:
 
 | Room | What it does |
 | --- | --- |
-| 🏠 **Home (Dashboard)** | Says hello, counts the days you have been together, counts down to your anniversary, lets you share your mood and shows a "love note of the day". |
-| 💬 **Chat** | Real-time private messages with photos, emoji, reactions, "typing…" and seen ticks (✓ sent, ✓✓ seen). |
-| 👥 **Presence** | Shows both of you live: online or last seen, moods and status. Send a "thinking of you" nudge that pops up on their phone. |
-| 🎮 **Games** | Four games: Tic-Tac-Toe (a real two-player game across both phones), Truth or Dare (you both see the same card), Memory Match and Would You Rather. |
-| 📅 **Planner** | Add dates and plans, see a live countdown and a calendar. Your partner gets a little notification. |
-| 🎵 **Music** | A shared playlist. Press play on one phone and the other phone plays along, at the same second. |
-| 💌 **Letters** | Write love letters that stay **locked** until a day you choose. |
-| 🕰️ **Timeline** | Your love story as a beautiful line of milestones. |
+| 🏠 **Home** | Days together, a turning 3D heart, your mood, the love note of the day, "I'm missing you" and call buttons. |
+| 💬 **Chat** | Real-time messages, **photos and short videos from your camera**, emoji, reactions, *typing…* and ticks (🕓 sending · ✓ sent · ✓✓ seen). |
+| 📞 **Calls** | **Voice and video calls** from phone to phone, with mute, camera on/off and switch camera. Minimise a call and keep talking while you browse. |
+| 💖 **Missing you** | One tap: hearts and "💖 Riya is missing you" pop up on your partner's phone, or a 💖 message waits in the chat if they're offline. |
+| 🖼️ **Gallery** | Share as many photos as you like. Both see them live. "Show Kabir" opens the photo on the other phone, and you can **voice chat while you look**. |
+| 🎨 **Canvas** | Draw together with pen, neon and eraser, add stickers, and add photos with a **cartoon filter**. Undo and save as a picture. |
+| 🎮 **Games** | Tic-Tac-Toe, Truth or Dare, Memory Match and Would You Rather. You **invite** your partner, and the game starts **only when they join**. |
+| 🎵 **Music** | Your own songs from the `music` folder, playing **in sync on both phones**. It keeps playing on every page, and you can control it from the 🎵 button at the top. |
 
-There is also a **welcome (landing) page**, the **Create / Join room** page, a **profile & room** pop-up (your name, the secret code, leave room), a **quick search** (`Ctrl + K` or `⌘ + K`) and a friendly **404 page**.
+There is also a **welcome page**, the **Create / Join** page, a **profile & room** panel (name, secret code, PIN lock, close room), **quick search** (`Ctrl + K`) and a friendly **404 page**.
 
 ---
 
@@ -59,64 +57,52 @@ There is also a **welcome (landing) page**, the **Create / Join room** page, a *
 
 | Problem | How UsSpace solves it |
 | --- | --- |
-| Too many apps | **Everything in one place.** Chat, plans, games, music, letters and memories live together and link to each other. The home page shows a summary of every room. |
-| No real privacy | **A locked room for two.** A secret code opens it, and once your partner joins, the room is locked to your two devices. Everything is **end-to-end encrypted** on your phone, so the server only passes along locked boxes it can't open. No feeds, no followers, no ads. |
-| Being far apart | **Real time.** Messages, typing, moods, plans, games and music move between your phones instantly. If one of you is offline, things wait (still encrypted) and arrive when you're back. |
-| No warmth | **Made to feel romantic.** Soft night colours, glowing pink-to-purple gradients, floating hearts, gentle animations and handwritten-style letters. |
-| Memories get lost | **Timeline + letters.** Milestones are saved in order, and letters wait for the perfect day. |
-| Small gestures are easy to miss | **Heart bursts and nudges.** One tap sends a burst of hearts, and moods show on the Presence page. |
-| Planning feels boring | **Live countdowns.** You can watch the seconds tick down to your next date. |
+| Too many apps | **Everything in one place**: chat, calls, photos, drawing, games and music. |
+| No real privacy | **A locked room for two.** Everything is **end-to-end encrypted** on your phone, so the server only passes along locked boxes it can't open. Calls go directly from phone to phone. |
+| No warmth | **Made to feel romantic**: a night-sky theme, glowing gradients, a 3D heart, floating hearts and gentle 3D animations. |
+| No control | **Close room = delete everything**, from the server and from both phones. An optional **PIN lock** protects the app on each phone. |
+| Being far apart | **Real time**: messages, typing, hearts, games, drawings and music move between your phones instantly. If one of you is offline, things wait (still encrypted) and arrive later. |
 
 ### What makes it special
 
 - 🔑 **No email, no password.** Just a secret code that only the two of you know.
-- 🔐 **End-to-end encrypted.** Your words are locked on your phone before they leave it.
-- 🚪 **Locked to two devices.** Even if the code leaks later, nobody else can join.
-- ⚡ **Live.** Typing, seen ticks, hearts, nudges and music all happen in real time.
-- 📴 **Works offline.** Your copy stays on your device, and changes sync when you're back online.
-- ✍️ **Personal.** Both names and the day you got together appear everywhere.
-- ✨ **Alive.** Almost everything moves gently, but it calms down for people who turn on "reduce motion".
-- 📱 **Works everywhere.** Phones get a floating bottom bar, and computers get a sidebar.
+- 🔐 **End-to-end encrypted.** Your words, photos and drawings are locked before they leave your phone.
+- 🚪 **Locked to two devices.** Even if the code leaks, nobody else can join.
+- 🧨 **Nothing left behind.** The server keeps rooms only in memory, and closing a room wipes everything.
+- ⚡ **Live.** Typing, seen ticks, hearts, game moves and music all happen in real time.
+- 📞 **Calls built in.** Voice and video, with no extra app.
 
 ---
 
 ## 1.4 Who are the users?
 
-### Main users
-
 | User | Their situation | What they love about UsSpace |
 | --- | --- | --- |
-| 💑 **Couples living together** | Busy days, want small sweet moments | Mood check-ins, love notes, shared plans. |
-| ✈️ **Long-distance couples** | Live in different cities or countries | Chat, "thinking of you" nudges, countdowns to the next visit. |
-| 💍 **Newly engaged / married couples** | Building memories | Timeline of milestones, anniversary letters. |
-| 🌱 **New couples** | Getting to know each other | Truth or Dare, Would You Rather, the first memories. |
-
-### Simple user personas
+| ✈️ **Long-distance couples** | Live in different cities | Video calls, "missing you" hearts, music together, games at night. |
+| 💑 **Couples living together** | Busy days | Quick chat with photos, sharing photos in the gallery, doodling together. |
+| 💍 **Newly engaged / married** | Collecting memories | A private shared album, music from their wedding playlist. |
+| 🌱 **New couples** | Getting to know each other | Truth or Dare, Would You Rather, drawing silly cartoons. |
 
 > **Priya & Arjun (long distance)**
-> Priya lives in Pune, Arjun in Bengaluru. Priya creates the room and sends Arjun the QR code. Now they chat every evening, see each other's "typing…", count down to the next weekend together in the **Planner**, and Arjun writes a **letter** that unlocks on Priya's birthday.
+> Priya creates the room and sends Arjun the QR. Every evening they video call, play Tic-Tac-Toe, and play *their* songs from the music folder at the same time. Whenever Priya misses Arjun, one tap on 💖 says it.
 
 > **Sam & Alex (living together)**
-> They play **Tic-Tac-Toe** after dinner, add songs to **Our Music**, and check each other's **mood** on busy days.
-
-> **Meera (planning a surprise)**
-> Meera writes a letter that opens on their anniversary, adds "Surprise trip ✈️" to the **Planner**, and saves "First trip together" to the **Timeline**.
+> They fill the gallery with trip photos and look at them on a voice chat, then turn a selfie into a cartoon on the canvas.
 
 ### Who is it *not* for?
 
-- Big groups or families (UsSpace is built for **two**).
-- Someone who wants the same room on many devices. A room holds exactly **two** devices, one each.
-- Big files or long videos. Photos are shrunk to keep things fast (see [02-approaches.md](02-approaches.md#29-what-comes-next) for what's next).
+- Groups or families. A room holds exactly **two** devices.
+- People who want long-term cloud backup. UsSpace is built to be private and easy to delete.
 
 ---
 
 ## 1.5 Quick summary
 
 ```
-Problem  → Couple moments are scattered, public and cold.
-Website  → UsSpace: one private, beautiful home for two.
-Solution → A locked room for two (secret code + end-to-end encryption),
-           8 connected rooms, all synced live between your two phones.
+Problem  → Couple moments are scattered, not private, and hard to delete.
+Website  → UsSpace: a locked, end-to-end encrypted room for two.
+Solution → Chat with camera, calls, missing-you hearts, gallery + voice chat,
+           shared canvas, invite-to-play games, music in sync, close room = delete all.
 Users    → Couples: long-distance, living together, new or married.
 ```
 

@@ -39,7 +39,7 @@ describe("routing", () => {
     enterRoom();
     visit("/dashboard");
     expect(await screen.findByText("How are you feeling?", {}, { timeout: 15000 })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Letters/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /Gallery/ }).length).toBeGreaterThan(0);
   }, 20000);
 
   it("shows the 404 page for unknown links", () => {

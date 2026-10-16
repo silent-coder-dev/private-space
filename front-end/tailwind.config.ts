@@ -143,6 +143,10 @@ export default {
           "50%": { transform: "translate3d(0, -80px, 0) rotate(12deg)", opacity: "0.7" },
           "100%": { transform: "translate3d(0, 0, 0) rotate(-8deg)", opacity: "0" },
         },
+        "spin-y": {
+          from: { transform: "rotateX(12deg) rotateY(0deg)" },
+          to: { transform: "rotateX(12deg) rotateY(360deg)" },
+        },
         travel: {
           "0%, 100%": { left: "0%" },
           "50%": { left: "calc(100% - 1.25rem)" },
@@ -171,6 +175,7 @@ export default {
         "spin-slow": "spin 12s linear infinite",
         wiggle: "wiggle 0.6s ease-in-out",
         travel: "travel 4s ease-in-out infinite",
+        "spin-y": "spin-y 9s linear infinite",
         drift: "drift 10s ease-in-out infinite",
         "drift-heart": "drift-heart 14s ease-in-out infinite",
       },

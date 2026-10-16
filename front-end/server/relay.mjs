@@ -11,15 +11,15 @@ import { WebSocketServer } from "ws";
 import { RoomStore } from "./store.mjs";
 
 export const LIMITS = {
-  maxPayload: 768 * 1024,
-  maxSignal: 8 * 1024,
+  maxPayload: 4 * 1024 * 1024,
+  maxSignal: 64 * 1024,
   maxMembers: 2,
   maxSocketsPerRoom: 8,
   authTimeoutMs: 10_000,
   heartbeatMs: 30_000,
   batchSize: 200,
   messages: { burst: 80, perSec: 8 },
-  signals: { burst: 40, perSec: 5 },
+  signals: { burst: 120, perSec: 20 },
   ipConnections: { burst: 40, perSec: 1 },
   ipAuth: { burst: 15, perSec: 0.2 },
   roomFailures: { max: 10, windowMs: 15 * 60_000 },
@@ -73,6 +73,10 @@ export function createRelay(options = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: L.maxPayload, perMessageDeflate: false });
   /** @type {Map<string, Set<Conn>>} */
   const roomSockets = new Map();
+  /** Rooms closed by their owners: never re-created, so an offline phone can't bring one back. */
+  /** @type {Map<string, number>} */
+  const closedRooms = new Map();
+  const isClosed = (/** @type {string} */ id) => closedRooms.has(id);
   /** @type {Map<string, { conn: Bucket, auth: Bucket, last: number }>} */
   const ips = new Map();
 
@@ -164,6 +168,7 @@ export function createRelay(options = {}) {
         if (conn.roomId) return fail(conn, "bad_request", "Already in a room.");
         if (!HEX32.test(msg.room) || !HEX64.test(msg.verifier) || !HEX32.test(msg.device))
           return fail(conn, "bad_request", "Invalid room details.");
+        if (isClosed(msg.room)) return fail(conn, "closed", "This room was closed and everything in it was deleted.");
         if (!ipState(conn.ip).auth.take()) return fail(conn, "rate_limited", "Too many attempts. Please wait a minute.");
         if (store.get(msg.room)) return fail(conn, "exists", "A room with this code already exists.");
         attach(conn, store.create(msg.room, msg.verifier, msg.device), msg.device);
@@ -176,6 +181,7 @@ export function createRelay(options = {}) {
           return fail(conn, "bad_request", "Invalid room details.");
         const since = Number.isSafeInteger(msg.since) && msg.since >= 0 ? msg.since : 0;
         // Only wrong guesses use up this IP's tries, so reconnecting is always free.
+        if (isClosed(msg.room)) return fail(conn, "closed", "This room was closed and everything in it was deleted.");
         const tries = ipState(conn.ip).auth;
         if (!tries.has()) return fail(conn, "rate_limited", "Too many attempts. Please wait a minute.");
         const room = store.get(msg.room);
@@ -241,6 +247,21 @@ export function createRelay(options = {}) {
         }
         detach(conn);
         conn.ws.close(1000);
+        return;
+      }
+
+      case "close": {
+        // Delete the room and everything in it, for both people, right now.
+        if (!conn.roomId) return;
+        const roomId = conn.roomId;
+        closedRooms.set(roomId, now());
+        store.delete(roomId);
+        for (const c of [...(roomSockets.get(roomId) ?? [])]) {
+          send(c.ws, { t: "closed" });
+          c.roomId = null;
+          c.ws.close(1000);
+        }
+        roomSockets.delete(roomId);
         return;
       }
 
@@ -314,6 +335,8 @@ export function createRelay(options = {}) {
     store.evictIdle((id) => roomSockets.has(id));
     const cutoff = now() - 30 * 60_000;
     for (const [ip, state] of ips) if (state.last < cutoff) ips.delete(ip);
+    const closedCutoff = now() - 30 * 24 * 60 * 60_000;
+    for (const [id, at] of closedRooms) if (at < closedCutoff) closedRooms.delete(id);
   }, 60_000);
 
   for (const timer of [heartbeat, flusher, janitor]) timer.unref?.();

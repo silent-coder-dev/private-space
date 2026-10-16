@@ -9,7 +9,7 @@ export const STORE_LIMITS = {
   /** Events kept per room. Older ones are dropped first (clients keep their own copy). */
   maxEvents: 6000,
   /** Total encrypted bytes kept per room. */
-  maxBytes: 40 * 1024 * 1024,
+  maxBytes: 60 * 1024 * 1024,
   /** Rooms nobody has opened for this long are deleted. */
   roomTtlMs: 180 * 24 * 60 * 60 * 1000,
   /** Rooms with no open connection are dropped from memory after this long. */

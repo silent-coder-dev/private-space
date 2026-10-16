@@ -1,18 +1,18 @@
-import { readStore, removeStore, writeStore } from "@/lib/storage";
+import { idbAvailable, idbClearPrefix, idbLoadPrefix, idbWrite } from "@/lib/idb";
+import { clearStore, readAllScoped, removeStore, writeStore } from "@/lib/storage";
 import type { Sender } from "@/lib/types";
 
 /**
  * The shared-data engine.
  *
- * Everything the two of you share is stored as small "entities" (one chat message, one plan,
- * your profile, the music player…). Each change is a `Put`: the newest version of one entity.
+ * Everything the two of you share is stored as small "entities" (one chat message, one photo,
+ * one drawing stroke, the music player…). Each change is a `Put`: the newest version of one entity.
  *
- * • Last writer wins: every put carries a timestamp + device id, so both phones always agree,
- *   no matter in which order changes arrive.
+ * • Last writer wins (timestamp + device id), so both phones always agree.
  * • Deletes are remembered ("tombstones") so a deleted item can't come back from an old copy.
- * • Data is written from each author's point of view ("me"). When a put arrives from the
- *   partner, "me" and "partner" are swapped, so "my message" shows on their side as "theirs".
- * • Values live in memory for instant reads; they are written to this device's storage in batches.
+ * • Data is written from each author's point of view ("me"). Puts from the partner are flipped.
+ * • Values live in memory for instant reads and are saved one item at a time
+ *   (IndexedDB when available, so photos and videos fit).
  */
 
 export interface Put {
@@ -34,18 +34,21 @@ interface ColumnSpec {
 
 export const swap = (who: Sender): Sender => (who === "me" ? "partner" : "me");
 const swapCell = (cell: Sender | null) => (cell ? swap(cell) : cell);
+const swapPair = <T,>(p: { me: T; partner: T }) => ({ ...p, me: p.partner, partner: p.me });
+const flipField = <K extends string>(key: K) => ((d: Record<K, Sender>) => ({ ...d, [key]: swap(d[key]) })) as Flip;
 
 export const COLUMNS = {
-  messages: { kind: "list", flip: ((m: { sender: Sender }) => ({ ...m, sender: swap(m.sender) })) as Flip },
-  events: { kind: "list" },
-  letters: { kind: "list", flip: ((l: { from: Sender }) => ({ ...l, from: swap(l.from) })) as Flip },
-  milestones: { kind: "list" },
-  songs: { kind: "list" },
+  messages: { kind: "list", flip: flipField("sender") },
+  photos: { kind: "list", flip: flipField("from") },
+  strokes: { kind: "list", flip: flipField("by") },
+  stickers: { kind: "list", flip: flipField("by") },
   member: { kind: "doc", flipId: true },
   read: { kind: "doc", flipId: true },
   couple: { kind: "doc" },
   player: { kind: "doc" },
   tod: { kind: "doc" },
+  game: { kind: "doc", flip: flipField("by") },
+  gview: { kind: "doc", flip: flipField("by") },
   ttt: {
     kind: "doc",
     flip: ((g: { board: (Sender | null)[]; turn: Sender; starter: Sender }) => ({
@@ -55,26 +58,70 @@ export const COLUMNS = {
       starter: swap(g.starter),
     })) as Flip,
   },
-  scores: {
+  scores: { kind: "doc", flip: swapPair as Flip },
+  memory: {
     kind: "doc",
-    flip: ((s: { me: number; partner: number }) => ({ ...s, me: s.partner, partner: s.me })) as Flip,
+    flip: ((m: { turn: Sender; points: { me: number; partner: number } }) => ({ ...m, turn: swap(m.turn), points: swapPair(m.points) })) as Flip,
+  },
+  wyr: {
+    kind: "doc",
+    flip: ((w: { picks: { me: number | null; partner: number | null } }) => ({ ...w, picks: swapPair(w.picks) })) as Flip,
   },
 } satisfies Record<string, ColumnSpec>;
 
 export type Column = keyof typeof COLUMNS;
 export type ListColumn = { [K in Column]: (typeof COLUMNS)[K]["kind"] extends "list" ? K : never }[Column];
 
-/** Where a doc is kept in storage: "couple" or "member:me". */
+/** Where a doc is kept: "couple" or "member:me". */
 export const docKey = (col: string, id: string) => (id === "doc" ? col : `${col}:${id}`);
 
 type Meta = Record<string, [ts: number, by: string, deleted: 0 | 1]>;
 
-const META_KEY = "sync-meta";
-const MAX_MESSAGES = 500;
+const META = "sync-meta";
+const MAX_MESSAGES = 600;
 const TOMBSTONE_TTL = 60 * 24 * 60 * 60 * 1000;
+const ITEM = "item:";
+const DOC = "doc:";
+const LOCAL = "local:";
 
-const isNewer = (ts: number, by: string, prev?: Meta[string]) =>
-  !prev || ts > prev[0] || (ts === prev[0] && by > prev[1]);
+const isNewer = (ts: number, by: string, prev?: Meta[string]) => !prev || ts > prev[0] || (ts === prev[0] && by > prev[1]);
+const byTime = (a: { at?: number; id: string }, b: { at?: number; id: string }) => (a.at ?? 0) - (b.at ?? 0) || (a.id < b.id ? -1 : 1);
+
+/** Where the engine saves things. One `write` is all-or-nothing, so items and the catch-up position never disagree. */
+export interface Persistence {
+  write(puts: [string, unknown][], removes: string[]): void;
+  clear(): Promise<void>;
+}
+
+const localPersistence: Persistence = {
+  write: (puts, removes) => {
+    for (const [key, value] of puts) writeStore(key, value);
+    for (const key of removes) removeStore(key);
+  },
+  clear: async () => clearStore(),
+};
+
+/** Open this room's saved data: IndexedDB in browsers, localStorage as a fallback (and in tests). */
+export async function openPersistence(roomId: string): Promise<{ persist: Persistence; data: Record<string, unknown> }> {
+  if (idbAvailable()) {
+    const prefix = `r:${roomId.slice(0, 16)}:`;
+    try {
+      const data = await idbLoadPrefix(prefix);
+      const persist: Persistence = {
+        write: (puts, removes) =>
+          void idbWrite(
+            puts.map(([key, value]) => [prefix + key, value]),
+            removes.map((key) => prefix + key),
+          ).catch(() => undefined),
+        clear: () => idbClearPrefix(prefix).catch(() => undefined),
+      };
+      return { persist, data };
+    } catch {
+      /* private mode etc. — fall back */
+    }
+  }
+  return { persist: localPersistence, data: readAllScoped() };
+}
 
 export class SyncEngine {
   /** Called with every local change so it can be encrypted and sent. */
@@ -84,7 +131,8 @@ export class SyncEngine {
 
   private cache = new Map<string, unknown>();
   private listeners = new Map<string, Set<() => void>>();
-  private dirty = new Set<string>();
+  private dirtyItems = new Set<string>();
+  private dirtyKeys = new Set<string>();
   private pending = new Map<string, Set<string>>();
   private meta: Meta;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -92,10 +140,29 @@ export class SyncEngine {
   constructor(
     readonly device: string,
     private clock: () => number = Date.now,
+    readonly persist: Persistence = localPersistence,
+    data: Record<string, unknown> = readAllScoped(),
   ) {
-    this.meta = readStore<Meta>(META_KEY, {});
+    this.meta = (data[META] as Meta) ?? {};
+    const lists = new Map<string, { id: string; at?: number }[]>();
+    for (const [key, value] of Object.entries(data)) {
+      if (key.startsWith(ITEM)) {
+        const col = key.slice(ITEM.length, key.indexOf("/"));
+        if (!(col in COLUMNS)) continue;
+        const list = lists.get(col) ?? [];
+        list.push(value as { id: string });
+        lists.set(col, list);
+      } else if (key.startsWith(DOC) || key.startsWith(LOCAL)) {
+        this.cache.set(key.startsWith(DOC) ? key.slice(DOC.length) : key, value);
+      }
+    }
+    for (const [col, list] of lists) this.cache.set(col, list.sort(byTime));
     this.pruneTombstones();
-    if (typeof window !== "undefined") window.addEventListener("pagehide", () => this.flush());
+    if (typeof window !== "undefined") {
+      window.addEventListener("pagehide", () => this.flush());
+      // Phones often close background apps without "pagehide", so save as soon as we're hidden.
+      document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && this.flush());
+    }
   }
 
   now = () => this.clock();
@@ -108,7 +175,6 @@ export class SyncEngine {
 
   /** Current value (callers should pass a stable `fallback`, e.g. a module constant). */
   get<T>(key: string, fallback: T): T {
-    if (!this.cache.has(key)) this.cache.set(key, readStore<T | undefined>(key, undefined));
     const value = this.cache.get(key);
     return value === undefined ? fallback : (value as T);
   }
@@ -123,7 +189,6 @@ export class SyncEngine {
     return () => set?.delete(listener);
   }
 
-  /** Ids in a column that are saved here but not yet confirmed by the server. */
   pendingIds(col: string): Set<string> {
     let set = this.pending.get(col);
     if (!set) {
@@ -143,17 +208,28 @@ export class SyncEngine {
     this.notify(`pending:${col}`);
   }
 
+  /** Device-only values (the offline outbox…) saved with the room but never shared. */
+  getLocal<T>(key: string, fallback: T): T {
+    return this.get(LOCAL + key, fallback);
+  }
+
+  setLocal(key: string, value: unknown) {
+    this.cache.set(LOCAL + key, value);
+    this.dirtyKeys.add(LOCAL + key);
+    this.scheduleFlush();
+  }
+
   // ---------- writing ----------
 
   /** Change something locally and share it with your partner. `data = null` deletes. */
   put(col: Column, id: string, data: unknown | null) {
     const prev = this.meta[`${col}/${id}`];
-    // Never go backwards in time, even if this device's clock is behind the partner's.
     const ts = Math.max(this.clock(), prev ? prev[0] + 1 : 0);
     const put: Put = { col, id, data, ts, by: this.device };
     if (this.apply(put)) {
-      this.flush();
+      // Queue it for sending first, so the item and its outbox entry are saved together.
       this.sender?.(put);
+      this.flush();
     }
   }
 
@@ -171,12 +247,6 @@ export class SyncEngine {
     return changed;
   }
 
-  private exists(col: string, id: string): boolean {
-    const spec = COLUMNS[col as Column] as ColumnSpec;
-    if (spec.kind === "list") return this.get<{ id: string }[]>(col, []).some((item) => item?.id === id);
-    return this.get<unknown>(docKey(col, id), undefined) !== undefined;
-  }
-
   /** Everything this device knows, in each author's own point of view (to re-upload after a server reset). */
   snapshot(): Put[] {
     const puts: Put[] = [];
@@ -188,10 +258,7 @@ export class SyncEngine {
       if (!spec) continue;
       let data: unknown = null;
       if (!deleted) {
-        data =
-          spec.kind === "list"
-            ? this.get<{ id: string }[]>(col, []).find((item) => item?.id === id) ?? null
-            : this.get<unknown>(docKey(col, id), null);
+        data = spec.kind === "list" ? this.get<{ id: string }[]>(col, []).find((i) => i?.id === id) ?? null : this.get<unknown>(docKey(col, id), null);
         if (data === null) continue;
       }
       const local: Put = { col, id, data, ts, by };
@@ -205,16 +272,43 @@ export class SyncEngine {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
-    for (const key of this.dirty) {
-      const value = this.cache.get(key);
-      if (value === undefined) removeStore(key);
-      else writeStore(key, value);
+    if (this.dirtyItems.size === 0 && this.dirtyKeys.size === 0) return;
+    const puts: [string, unknown][] = [];
+    const removes: string[] = [];
+    for (const mk of this.dirtyItems) {
+      const slash = mk.indexOf("/");
+      const item = this.get<{ id: string }[]>(mk.slice(0, slash), []).find((i) => i?.id === mk.slice(slash + 1));
+      if (item) puts.push([ITEM + mk, item]);
+      else removes.push(ITEM + mk);
     }
-    if (this.dirty.size > 0) writeStore(META_KEY, this.meta);
-    this.dirty.clear();
+    for (const key of this.dirtyKeys) {
+      const value = this.cache.get(key);
+      const storeKey = key.startsWith(LOCAL) ? key : DOC + key;
+      if (value === undefined) removes.push(storeKey);
+      else puts.push([storeKey, value]);
+    }
+    puts.push([META, this.meta]);
+    this.dirtyItems.clear();
+    this.dirtyKeys.clear();
+    this.persist.write(puts, removes);
+  }
+
+  /** Delete everything this device saved for the room. */
+  async wipe() {
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.dirtyItems.clear();
+    this.dirtyKeys.clear();
+    this.cache.clear();
+    await this.persist.clear();
   }
 
   // ---------- internals ----------
+
+  private exists(col: string, id: string): boolean {
+    const spec = COLUMNS[col as Column] as ColumnSpec;
+    if (spec.kind === "list") return this.get<{ id: string }[]>(col, []).some((i) => i?.id === id);
+    return this.cache.get(docKey(col, id)) !== undefined;
+  }
 
   private flipPut(put: Put): Put {
     const spec = COLUMNS[put.col as Column] as ColumnSpec;
@@ -230,7 +324,7 @@ export class SyncEngine {
 
     const spec = COLUMNS[put.col as Column] as ColumnSpec;
     if (spec.kind === "list") {
-      const list = this.get<{ id: string }[]>(put.col, []);
+      const list = this.get<{ id: string; at?: number }[]>(put.col, []);
       const index = list.findIndex((item) => item?.id === put.id);
       let next = list;
       if (put.data === null) {
@@ -239,30 +333,35 @@ export class SyncEngine {
         next = list.slice();
         next[index] = put.data as { id: string };
       } else {
-        next = [...list, put.data as { id: string }];
-        if (put.col === "messages" && next.length > MAX_MESSAGES) next = next.slice(next.length - MAX_MESSAGES);
+        next = [...list, put.data as { id: string; at?: number }];
+        // Keep lists in time order even when items arrive out of order.
+        if (next.length > 1 && byTime(next[next.length - 2], next[next.length - 1]) > 0) next.sort(byTime);
+        if (put.col === "messages" && next.length > MAX_MESSAGES) {
+          for (const old of next.slice(0, next.length - MAX_MESSAGES)) this.dirtyItems.add(`messages/${old.id}`);
+          next = next.slice(next.length - MAX_MESSAGES);
+        }
       }
-      if (next !== list) this.setValue(put.col, next);
-      else this.dirty.add(put.col);
+      this.dirtyItems.add(mk);
+      if (next !== list) {
+        this.cache.set(put.col, next);
+        this.notify(put.col);
+      }
     } else {
-      this.setValue(docKey(put.col, put.id), put.data === null ? undefined : put.data);
+      const key = docKey(put.col, put.id);
+      this.cache.set(key, put.data === null ? undefined : put.data);
+      this.dirtyKeys.add(key);
+      this.notify(key);
     }
     return true;
-  }
-
-  private setValue(key: string, value: unknown) {
-    this.cache.set(key, value);
-    this.dirty.add(key);
-    this.notify(key);
   }
 
   private notify(key: string) {
     this.listeners.get(key)?.forEach((listener) => listener());
   }
 
-  private scheduleFlush() {
+  private scheduleFlush(ms = 300) {
     if (this.flushTimer) return;
-    this.flushTimer = setTimeout(() => this.flush(), 300);
+    this.flushTimer = setTimeout(() => this.flush(), ms);
   }
 
   private pruneTombstones() {

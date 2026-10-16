@@ -3,7 +3,7 @@ import { expect, test } from "../playwright-fixture";
 
 /** Create a room in a fresh browser and return its page + secret code. */
 async function createRoom(browser: Browser, name: string) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ permissions: ["camera", "microphone"] });
   const page = await context.newPage();
   await page.goto("/start");
   await page.getByText("Create a room").click();
@@ -15,7 +15,7 @@ async function createRoom(browser: Browser, name: string) {
 }
 
 async function joinRoom(browser: Browser, code: string, name: string) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ permissions: ["camera", "microphone"] });
   const page = await context.newPage();
   await page.goto("/start");
   await page.getByText("Join a room").click();
@@ -55,6 +55,9 @@ test("two partners connect with a secret code and chat in real time", async ({ b
 
   await openChat(riya.page);
   await openChat(kabir.page);
+  // Opening /chat reloads the page, so wait until both are connected again.
+  await expect(riya.page.getByText("Online now")).toBeVisible();
+  await expect(kabir.page.getByText("Online now")).toBeVisible();
 
   // Typing indicator + real-time message.
   await kabir.page.getByRole("textbox", { name: "Message" }).fill("Hey you 💕");
@@ -99,10 +102,41 @@ test("every room opens without errors", async ({ browser }) => {
   const errors: string[] = [];
   riya.page.on("pageerror", (err) => errors.push(err.message));
   await riya.page.getByRole("button", { name: "Enter our space" }).click();
-  for (const path of ["/dashboard", "/chat", "/presence", "/games", "/planner", "/music", "/letters", "/timeline"]) {
+  for (const path of ["/dashboard", "/chat", "/gallery", "/canvas", "/games", "/music"]) {
     await riya.page.goto(path);
     await expect(riya.page.locator("main h1, main p").first()).toBeVisible();
   }
   expect(errors).toEqual([]);
   await riya.context.close();
+});
+
+test("game invite starts only when the partner joins, and a video call connects", async ({ browser }) => {
+  const riya = await createRoom(browser, "Riya");
+  const kabir = await joinRoom(browser, riya.code, "Kabir");
+  await expect(kabir.page).toHaveURL(/\/dashboard$/);
+  await riya.page.getByRole("button", { name: "Enter our space" }).click();
+
+  // Game invite
+  await riya.page.goto("/games");
+  await riya.page.getByRole("button", { name: /Invite Kabir/ }).first().click();
+  await expect(riya.page.getByText(/Waiting for Kabir to join/)).toBeVisible();
+  await kabir.page.goto("/games");
+  await kabir.page.getByRole("button", { name: "Join game" }).click();
+  await expect(riya.page.getByRole("button", { name: "Play square 1" })).toBeVisible();
+  await riya.page.getByRole("button", { name: "Play square 5" }).click();
+  await expect(kabir.page.getByRole("button", { name: /^Square 5,/ })).toBeVisible();
+
+  // Video call, phone to phone
+  await riya.page.goto("/chat");
+  await kabir.page.goto("/chat");
+  await expect(riya.page.getByText("Online now")).toBeVisible();
+  await riya.page.getByRole("button", { name: "Video call" }).click();
+  await kabir.page.getByRole("button", { name: "Accept" }).click();
+  await expect(riya.page.getByRole("button", { name: "End call" })).toBeVisible();
+  await expect(riya.page.getByText(/Kabir · 0:0[1-9]/)).toBeVisible({ timeout: 15_000 });
+  await riya.page.getByRole("button", { name: "End call" }).click();
+  await expect(kabir.page.getByText("Call ended")).toBeVisible();
+
+  await riya.context.close();
+  await kabir.context.close();
 });

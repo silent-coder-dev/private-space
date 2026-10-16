@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { PageLoader } from "@/components/layout/PageLoader";
 import { fireHearts } from "@/lib/burst";
-import { DEFAULT_ME, DEFAULT_PARTNER, starterContent } from "@/lib/seed";
+import { GAME_NAMES } from "@/lib/content";
+import { DEFAULT_ME, DEFAULT_PARTNER } from "@/lib/seed";
 import { clearStore, setStorageScope } from "@/lib/storage";
-import type { ChatMessage, Letter, MemberDoc, Milestone, PlanEvent } from "@/lib/types";
+import type { ChatMessage, GameSession, MemberDoc } from "@/lib/types";
 import { relayUrl, SyncClient, type ConnectionStatus, type Presence, type RoomErrorCode, type Signal } from "@/sync/client";
 import { deriveKeys, formatCode, generateCode, isValidCode, randomId } from "@/sync/crypto";
-import { docKey, SyncEngine, type Put } from "@/sync/engine";
+import { docKey, openPersistence, SyncEngine, type Put } from "@/sync/engine";
 import { clearSession, loadSession, saveSession, type RoomSession } from "@/sync/session";
 import { RoomContext, ROOM_ERRORS, type RoomContextValue } from "./room";
 
@@ -24,77 +26,111 @@ interface Live {
   engine: SyncEngine;
 }
 
-/** Loads the saved room (if any) before anything renders, so every page reads the right data. */
-function restore(): Live | null {
-  const session = loadSession();
-  if (!session) return null;
+async function openEngine(session: RoomSession): Promise<SyncEngine> {
   setStorageScope(session.roomId);
-  return { session, engine: new SyncEngine(session.device) };
+  const { persist, data } = await openPersistence(session.roomId);
+  return new SyncEngine(session.device, Date.now, persist, data);
+}
+
+/** Delete everything this device knows about the room, then go back to the start. */
+async function wipeDevice(engine: SyncEngine | null) {
+  await engine?.wipe();
+  clearStore();
+  clearSession();
+  setStorageScope(null);
 }
 
 export function RoomProvider({ children, autoConnect = true }: { children: ReactNode; autoConnect?: boolean }) {
-  const [live, setLive] = useState<Live | null>(restore);
+  const [saved] = useState(loadSession);
+  const [live, setLive] = useState<Live | null>(null);
+  const [hydrated, setHydrated] = useState(!saved);
   const [status, setStatus] = useState<ConnectionStatus>("offline");
-  const [presence, setPresence] = useState<Presence>(() => ({
-    members: live?.session.partnerJoined ? 2 : 1,
-    partnerOnline: false,
-    partnerSeen: null,
-  }));
+  const [presence, setPresence] = useState<Presence>(() => ({ members: saved?.partnerJoined ? 2 : 1, partnerOnline: false, partnerSeen: null }));
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [problem, setProblem] = useState<RoomContextValue["problem"]>(null);
   const clientRef = useRef<SyncClient | null>(null);
+  const liveRef = useRef<Live | null>(null);
+  liveRef.current = live;
   const typingTimer = useRef<ReturnType<typeof setTimeout>>();
+  const signalListeners = useRef(new Set<(s: Signal) => void>());
+  const presenceRef = useRef(presence);
+  presenceRef.current = presence;
   const navigate = useNavigate();
   const location = useLocation();
   const pathRef = useRef(location.pathname);
   pathRef.current = location.pathname;
 
+  // Load the saved room (from IndexedDB) before any private page renders.
+  useEffect(() => {
+    if (!saved) return;
+    let cancelled = false;
+    openEngine(saved).then((engine) => {
+      if (cancelled) return;
+      setLive({ session: saved, engine });
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [saved]);
+
   const partnerName = (engine: SyncEngine) => engine.get<MemberDoc>(docKey("member", "partner"), DEFAULT_PARTNER).name;
 
-  /** Gentle notifications when your partner adds something (only once live, not while catching up). */
+  const onClosed = useCallback(async () => {
+    clientRef.current?.stop();
+    clientRef.current = null;
+    await wipeDevice(liveRef.current?.engine ?? null);
+    toast("🔒 The room was closed. Everything was deleted.");
+    window.location.assign("/");
+  }, []);
+
+  /** Gentle notifications when your partner does something (only once live, not while catching up). */
   const notify = useCallback(
     (engine: SyncEngine, put: Put, created: boolean) => {
-      if (!created || put.data === null || !clientRef.current?.live) return;
+      if (put.data === null || !clientRef.current?.live) return;
       const name = partnerName(engine);
       const where = pathRef.current;
-      if (put.col === "messages" && where !== "/chat") {
+      if (put.col === "messages" && created && where !== "/chat") {
         const m = put.data as ChatMessage;
         toast(`💬 ${name}`, {
-          description: m.text ? m.text.slice(0, 80) : "📷 Sent a photo",
+          description: m.text ? m.text.slice(0, 80) : m.video ? "🎥 Sent a video" : "📷 Sent a photo",
           action: { label: "Reply", onClick: () => navigate("/chat") },
         });
-      } else if (put.col === "letters" && where !== "/letters") {
-        toast(`💌 ${name} wrote you a letter`, {
-          description: (put.data as Letter).title,
-          action: { label: "See", onClick: () => navigate("/letters") },
-        });
-      } else if (put.col === "events" && where !== "/planner") {
-        const e = put.data as PlanEvent;
-        toast(`📅 ${name} added a plan`, { description: `${e.emoji} ${e.title}`, action: { label: "See", onClick: () => navigate("/planner") } });
-      } else if (put.col === "milestones" && where !== "/timeline") {
-        const m = put.data as Milestone;
-        toast(`🕰️ ${name} added a memory`, { description: `${m.emoji} ${m.title}` });
+      } else if (put.col === "photos" && created && where !== "/gallery") {
+        toast(`🖼️ ${name} added a photo to your gallery`, { action: { label: "See", onClick: () => navigate("/gallery") } });
+      } else if (put.col === "game") {
+        const g = put.data as GameSession;
+        if (g.status === "invited" && g.by === "partner") {
+          toast(`🎮 ${name} invites you to play ${GAME_NAMES[g.game] ?? "a game"}`, {
+            duration: 15_000,
+            action: { label: "Join game", onClick: () => navigate(`/games?join=1`) },
+          });
+        } else if (g.status === "playing" && g.by === "me" && where !== "/games") {
+          toast(`🎮 ${name} joined your game!`, { action: { label: "Play", onClick: () => navigate("/games") } });
+        }
+      } else if (put.col === "gview" && where !== "/gallery") {
+        toast(`👀 ${name} wants to show you a photo`, { action: { label: "Look", onClick: () => navigate("/gallery?look=1") } });
       }
     },
     [navigate],
   );
 
-  const onSignal = useCallback((engine: SyncEngine, signal: Signal) => {
+  const handleSignal = useCallback((engine: SyncEngine, signal: Signal) => {
     const name = partnerName(engine);
     if (signal.type === "typing") {
       setPartnerTyping(true);
       clearTimeout(typingTimer.current);
       typingTimer.current = setTimeout(() => setPartnerTyping(false), 4000);
     } else if (signal.type === "heart") {
-      fireHearts({ count: 26 });
-      toast(`💖 ${name} sent you a heart`);
+      fireHearts({ count: 30 });
+      toast(`💖 ${name} is missing you`, { description: "Send one back?" });
     } else if (signal.type === "nudge") {
       fireHearts({ count: 18, emojis: ["💭", "💗", "✨"] });
       toast(`💭 ${name} is thinking of you`);
     }
+    signalListeners.current.forEach((listener) => listener(signal));
   }, []);
 
-  /** Start the live connection for a room. `first` is told when it is ready or fails for the first time. */
   const startClient = useCallback(
     (
       session: RoomSession,
@@ -122,7 +158,7 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
               }
             }
           },
-          signal: (s) => onSignal(engine, s),
+          signal: (s) => handleSignal(engine, s),
           ready: () => {
             if (settled) return;
             settled = true;
@@ -136,6 +172,7 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
             }
             setProblem({ code, message: ROOM_ERRORS[code] });
           },
+          closed: () => void onClosed(),
         },
         mode,
         allowRecreate,
@@ -145,10 +182,9 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
       client.start();
       return client;
     },
-    [notify, onSignal],
+    [notify, handleSignal, onClosed],
   );
 
-  /** For creating / joining: wait until connected, or fail with a friendly error. */
   const connectOnce = useCallback(
     (session: RoomSession, engine: SyncEngine, mode: "create" | "join") =>
       new Promise<void>((resolve, reject) => {
@@ -170,8 +206,7 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
     [startClient],
   );
 
-  // Reconnect to a saved room when the app opens. It keeps retrying in the background,
-  // and everything still works offline in the meantime.
+  // Reconnect to a saved room. It keeps retrying in the background; everything still works offline.
   useEffect(() => {
     if (!autoConnect || !live || clientRef.current) return;
     startClient(live.session, live.engine, "join", true);
@@ -190,15 +225,13 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
       clientRef.current?.stop();
       clientRef.current = null;
       setProblem(null);
-      setStorageScope(session.roomId);
-      const engine = new SyncEngine(session.device);
+      const engine = await openEngine(session);
       try {
         await connectOnce(session, engine, mode);
       } catch (err) {
         clientRef.current?.stop();
         clientRef.current = null;
-        clearStore();
-        setStorageScope(null);
+        await wipeDevice(engine);
         throw err;
       }
       saveSession(session);
@@ -208,46 +241,30 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
     [connectOnce],
   );
 
+  const newSession = (code: string, role: RoomSession["role"]): RoomSession => ({
+    v: 1,
+    code,
+    roomId: deriveKeys(code).roomId,
+    device: randomId(),
+    role,
+    createdAt: Date.now(),
+    lastSeq: 0,
+    partnerJoined: role === "joiner",
+  });
+
   const createRoom = useCallback(
-    (name: string, since: string) => {
-      const code = generateCode();
-      const session: RoomSession = {
-        v: 1,
-        code,
-        roomId: deriveKeys(code).roomId,
-        device: randomId(),
-        role: "creator",
-        createdAt: Date.now(),
-        lastSeq: 0,
-        partnerJoined: false,
-      };
-      return begin(session, "create", (engine) => {
+    (name: string, since: string) =>
+      begin(newSession(generateCode(), "creator"), "create", (engine) => {
         engine.put("member", "me", { ...DEFAULT_ME, name });
         engine.put("couple", "doc", { since });
-        const starter = starterContent(since, () => randomId(8));
-        for (const song of starter.songs) engine.put("songs", song.id, song);
-        for (const m of starter.milestones) engine.put("milestones", m.id, m);
-        for (const e of starter.events) engine.put("events", e.id, e);
-      });
-    },
+      }),
     [begin],
   );
 
   const joinRoom = useCallback(
     async (input: string, name: string) => {
       if (!isValidCode(input)) throw new RoomError("denied");
-      const code = formatCode(input);
-      const session: RoomSession = {
-        v: 1,
-        code,
-        roomId: deriveKeys(code).roomId,
-        device: randomId(),
-        role: "joiner",
-        createdAt: Date.now(),
-        lastSeq: 0,
-        partnerJoined: true,
-      };
-      return begin(session, "join", (engine) => {
+      return begin(newSession(formatCode(input), "joiner"), "join", (engine) => {
         const mine = engine.get<MemberDoc>(docKey("member", "me"), DEFAULT_ME);
         engine.put("member", "me", { ...mine, name });
       });
@@ -255,17 +272,24 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
     [begin],
   );
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback(async () => {
     clientRef.current?.leave();
     clientRef.current = null;
-    live?.engine.flush();
-    clearStore();
-    clearSession();
-    setStorageScope(null);
+    await wipeDevice(liveRef.current?.engine ?? null);
     window.location.assign("/");
-  }, [live]);
+  }, []);
 
-  const signal = useCallback((type: Signal["type"]) => clientRef.current?.sendSignal(type), []);
+  const closeRoom = useCallback(async () => {
+    clientRef.current?.closeRoom();
+    // If we're offline the server can't be told — still wipe here; the room stays closed for us.
+    setTimeout(() => void onClosed(), 400);
+  }, [onClosed]);
+
+  const signal = useCallback((type: Signal["type"], data?: unknown) => clientRef.current?.sendSignal(type, data) ?? false, []);
+  const onSignal = useCallback((listener: (s: Signal) => void) => {
+    signalListeners.current.add(listener);
+    return () => void signalListeners.current.delete(listener);
+  }, []);
 
   const value = useMemo<RoomContextValue>(
     () => ({
@@ -277,11 +301,14 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
       problem,
       createRoom,
       joinRoom,
-      leaveRoom,
+      leaveRoom: () => void leaveRoom(),
+      closeRoom: () => void closeRoom(),
       signal,
+      onSignal,
     }),
-    [live, status, presence, partnerTyping, problem, createRoom, joinRoom, leaveRoom, signal],
+    [live, status, presence, partnerTyping, problem, createRoom, joinRoom, leaveRoom, closeRoom, signal, onSignal],
   );
 
+  if (!hydrated) return <PageLoader />;
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;
 }

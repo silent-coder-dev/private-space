@@ -1,4 +1,4 @@
-import { Check, Copy, Eye, EyeOff, LogOut, ShieldCheck } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, Lock, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { makeLock, useLockSettings } from "@/components/layout/AppLock";
 import { ConnectionPill } from "@/components/layout/ConnectionPill";
 import { InitialAvatar } from "@/components/layout/InitialAvatar";
 import { useRoom } from "@/context/room";
@@ -41,7 +42,7 @@ export function SettingsDialog() {
 
 function SettingsForm({ onDone }: { onDone: () => void }) {
   const { profile, updateProfile } = useSpace();
-  const { session, presence, leaveRoom } = useRoom();
+  const { session, presence, leaveRoom, closeRoom } = useRoom();
   const [me, setMe] = useState(profile.me);
   const [since, setSince] = useState(profile.since);
   const [reveal, setReveal] = useState(false);
@@ -138,17 +139,42 @@ function SettingsForm({ onDone }: { onDone: () => void }) {
         </p>
       </div>
 
+      <PinLockSettings />
+
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button type="button" className="w-full bg-destructive/90 hover:bg-destructive">
+            <Trash2 /> Close room & delete everything
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close the room for both of you?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every message, photo, video, drawing and game is deleted from the server, from your phone and from {profile.partner}'s phone. The
+              secret code stops working. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep our room</AlertDialogCancel>
+            <AlertDialogAction onClick={closeRoom} className="bg-destructive hover:bg-destructive/90">
+              Close & delete everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button type="button" variant="ghost" className="w-full text-muted-foreground hover:text-destructive">
-            <LogOut /> Leave this room on this device
+            <LogOut /> Leave this room on this device only
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Leave this room?</AlertDialogTitle>
             <AlertDialogDescription>
-              This device leaves the room and deletes its copy of your messages, letters and plans. Your partner keeps theirs.
+              This device leaves the room and deletes its copy of your messages, photos and drawings. Your partner keeps theirs.
               Your seat becomes free, so you can join again with the secret code — make sure you have it saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -161,5 +187,53 @@ function SettingsForm({ onDone }: { onDone: () => void }) {
         </AlertDialogContent>
       </AlertDialog>
     </form>
+  );
+}
+
+/** Optional PIN lock for this phone. */
+function PinLockSettings() {
+  const [lock, setLock] = useLockSettings();
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const valid = /^\d{4,8}$/.test(pin);
+
+  const save = async () => {
+    if (!valid) return;
+    setBusy(true);
+    setLock(await makeLock(pin));
+    setBusy(false);
+    setPin("");
+    toast.success("PIN lock is on 🔒");
+  };
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="flex items-center gap-2 font-heading text-sm font-semibold">
+        <Lock className="h-4 w-4 text-primary" /> PIN lock on this phone
+      </p>
+      {lock ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">On. UsSpace asks for your PIN when it opens and after 30 s away.</p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setLock(null)}>
+            Turn off
+          </Button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Input
+            type="password"
+            inputMode="numeric"
+            placeholder="New 4–8 digit PIN"
+            value={pin}
+            maxLength={8}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            aria-label="New PIN"
+          />
+          <Button type="button" variant="gradient" disabled={!valid || busy} onClick={() => void save()}>
+            Set
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,7 +1,6 @@
-import { readStore, writeStore } from "@/lib/storage";
 import { itemKey, open, randomId, seal, type RoomKeys } from "./crypto";
 import type { Put, SyncEngine } from "./engine";
-import { saveSession, type RoomSession } from "./session";
+import type { RoomSession } from "./session";
 
 export type ConnectionStatus = "connecting" | "online" | "offline";
 
@@ -11,11 +10,13 @@ export interface Presence {
   partnerSeen: number | null;
 }
 
-export type SignalType = "typing" | "heart" | "nudge";
+export type SignalType = "typing" | "heart" | "nudge" | "call";
 export interface Signal {
   type: SignalType;
   by: string;
   at: number;
+  /** Extra data (used by calls: offers, answers…). */
+  data?: unknown;
 }
 
 export type RoomErrorCode =
@@ -27,7 +28,8 @@ export type RoomErrorCode =
   | "exists"
   | "left"
   | "timeout"
-  | "network";
+  | "network"
+  | "closed";
 
 export interface ClientHandlers {
   status: (status: ConnectionStatus) => void;
@@ -37,6 +39,8 @@ export interface ClientHandlers {
   ready: () => void;
   /** Something that stops the connection for good (wrong code, room full…). */
   fatal: (code: RoomErrorCode, message: string) => void;
+  /** The room was closed (by either of you): everything must be wiped. */
+  closed: () => void;
 }
 
 interface OutboxItem {
@@ -48,6 +52,8 @@ interface OutboxItem {
 }
 
 const OUTBOX_KEY = "sync-outbox";
+/** Last event number we have — saved together with the events themselves, so it can never run ahead of them. */
+const SEQ_KEY = "sync-seq";
 const FATAL: RoomErrorCode[] = ["full", "denied", "left", "bad_request"];
 
 /** Where the relay lives: same site by default, or VITE_SYNC_URL for a separately hosted server. */
@@ -86,7 +92,8 @@ export class SyncClient {
     /** When the server has lost the room, re-create it from this device's copy. */
     private allowRecreate: boolean,
   ) {
-    this.outbox = readStore<OutboxItem[]>(OUTBOX_KEY, []);
+    this.session.lastSeq = engine.getLocal<number>(SEQ_KEY, 0);
+    this.outbox = engine.getLocal<OutboxItem[]>(OUTBOX_KEY, []);
     for (const item of this.outbox) engine.setPending(item.col, item.id, true);
     engine.sender = (put) => this.enqueue(put);
     engine.setClock(this.serverNow);
@@ -123,10 +130,17 @@ export class SyncClient {
     this.stop();
   }
 
-  sendSignal(type: SignalType) {
-    if (!this.ready || this.ws?.readyState !== WebSocket.OPEN) return;
-    const signal: Signal = { type, by: this.session.device, at: this.serverNow() };
+  /** Returns false when it couldn't be sent (not connected). */
+  sendSignal(type: SignalType, data?: unknown): boolean {
+    if (!this.ready || this.ws?.readyState !== WebSocket.OPEN) return false;
+    const signal: Signal = { type, by: this.session.device, at: this.serverNow(), data };
     this.ws.send(JSON.stringify({ t: "signal", e: seal(this.keys, signal) }));
+    return true;
+  }
+
+  /** Close the room for both people: the server deletes everything. */
+  closeRoom() {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: "close" }));
   }
 
   // ---------- connection ----------
@@ -218,6 +232,7 @@ export class SyncClient {
         } else if (Number(msg.head) < this.session.lastSeq) {
           // The server's copy is older than ours (it was reset). Start over and re-upload.
           this.session.lastSeq = 0;
+          this.engine.setLocal(SEQ_KEY, 0);
           this.resendSnapshot = true;
         }
         this.handlers.presence(msg as unknown as Presence);
@@ -240,7 +255,7 @@ export class SyncClient {
         this.inFlight.delete(ref);
         if (item) {
           this.outbox = this.outbox.filter((o) => o.ref !== ref);
-          writeStore(OUTBOX_KEY, this.outbox);
+          this.engine.setLocal(OUTBOX_KEY, this.outbox);
           if (!this.outbox.some((o) => o.col === item.col && o.id === item.id)) this.engine.setPending(item.col, item.id, false);
         }
         this.advance(Number(msg.seq));
@@ -251,6 +266,11 @@ export class SyncClient {
         this.handlers.presence(msg as unknown as Presence);
         return;
 
+      case "closed":
+        this.stop();
+        this.handlers.closed();
+        return;
+
       case "signal": {
         const signal = open<Signal>(this.keys, String(msg.e));
         if (signal && signal.by !== this.session.device) this.handlers.signal(signal);
@@ -259,6 +279,11 @@ export class SyncClient {
 
       case "error": {
         const code = msg.code as RoomErrorCode;
+        if (code === "closed") {
+          this.stop();
+          this.handlers.closed();
+          return;
+        }
         if (code === "not_found" && this.allowRecreate) {
           // Our saved room is gone from the server — rebuild it from this device.
           this.mode = "create";
@@ -299,7 +324,7 @@ export class SyncClient {
   private advance(seq: number) {
     if (Number.isFinite(seq) && seq > this.session.lastSeq) {
       this.session.lastSeq = seq;
-      saveSession(this.session);
+      this.engine.setLocal(SEQ_KEY, seq);
     }
   }
 
@@ -327,7 +352,7 @@ export class SyncClient {
     // A newer version of the same item replaces an unsent older one.
     this.outbox = this.outbox.filter((o) => o.key !== item.key || this.inFlight.has(o.ref));
     this.outbox.push(item);
-    writeStore(OUTBOX_KEY, this.outbox);
+    this.engine.setLocal(OUTBOX_KEY, this.outbox);
     this.engine.setPending(put.col, put.id, true);
     if (sendNow) this.flushOutbox();
   }

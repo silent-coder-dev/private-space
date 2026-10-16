@@ -6,19 +6,18 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRoom } from "@/context/room";
 import { RoomProvider } from "@/context/RoomProvider";
 import { SpaceProvider } from "@/context/SpaceProvider";
-import { daysFromToday } from "@/lib/time";
 import { setStorageScope, writeStore } from "@/lib/storage";
 import Chat from "@/pages/Chat";
+import { CallProvider } from "@/call/CallProvider";
+import { MusicProvider } from "@/music/MusicProvider";
+import Canvas from "@/pages/Canvas";
 import Dashboard from "@/pages/Dashboard";
+import Gallery from "@/pages/Gallery";
 import Games from "@/pages/Games";
 import Index from "@/pages/Index";
-import Letters from "@/pages/Letters";
 import MusicPlayer from "@/pages/MusicPlayer";
 import NotFound from "@/pages/NotFound";
-import Planner from "@/pages/Planner";
-import Presence from "@/pages/Presence";
 import Start from "@/pages/Start";
-import Timeline from "@/pages/Timeline";
 import { deriveKeys, generateCode, randomId } from "@/sync/crypto";
 import type { SyncEngine } from "@/sync/engine";
 import { saveSession, type RoomSession } from "@/sync/session";
@@ -50,15 +49,19 @@ function GrabEngine() {
   return null;
 }
 
-const renderPage = (page: ReactElement, path = "/", { inRoom = true, connect = false } = {}) =>
-  render(
+const renderPage = async (page: ReactElement, path = "/", { inRoom = true, connect = false } = {}) => {
+  const result = render(
     <MemoryRouter initialEntries={[path]}>
       <RoomProvider autoConnect={connect}>
         <TooltipProvider>
           {inRoom ? (
             <SpaceProvider>
-              <GrabEngine />
-              {page}
+              <CallProvider>
+                <MusicProvider>
+                  <GrabEngine />
+                  {page}
+                </MusicProvider>
+              </CallProvider>
             </SpaceProvider>
           ) : (
             page
@@ -67,16 +70,20 @@ const renderPage = (page: ReactElement, path = "/", { inRoom = true, connect = f
       </RoomProvider>
     </MemoryRouter>,
   );
+  // The room loads its saved data first (async), then the page appears.
+  await act(async () => {});
+  return result;
+};
 
 describe("public pages", () => {
-  it("landing sends new visitors to create or join a room", () => {
-    renderPage(<Index />, "/", { inRoom: false });
+  it("landing sends new visitors to create or join a room", async () => {
+    await renderPage(<Index />, "/", { inRoom: false });
     expect(screen.getByText("feel at home.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /enter our space/i })[0]).toHaveAttribute("href", "/start");
   });
 
   it("start page offers create and join", async () => {
-    renderPage(<Start />, "/start", { inRoom: false });
+    await renderPage(<Start />, "/start", { inRoom: false });
     expect(screen.getByText("Create a room")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Join a room"));
     const code = await screen.findByLabelText("Secret code");
@@ -89,80 +96,59 @@ describe("public pages", () => {
     expect(screen.getByRole("button", { name: /join room/i })).toBeEnabled();
   });
 
-  it("404", () => {
-    renderPage(<NotFound />, "/nope", { inRoom: false });
+  it("404", async () => {
+    await renderPage(<NotFound />, "/nope", { inRoom: false });
     expect(screen.getByText("This page wandered off")).toBeInTheDocument();
     expect(screen.getByText("/nope")).toBeInTheDocument();
   });
 });
 
 describe("room pages", () => {
-  it("dashboard invites the partner until they join", () => {
+  it("dashboard invites the partner until they join", async () => {
     enterRoom({ partnerJoined: false });
-    renderPage(<Dashboard />, "/dashboard");
+    await renderPage(<Dashboard />, "/dashboard");
     expect(screen.getByText("Invite your partner")).toBeInTheDocument();
-    expect(screen.getByText("How are you feeling?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /I.m missing you/ })).toBeInTheDocument();
   });
 
-  it("presence", () => {
+  it("gallery shows shared photos", async () => {
+    enterRoom({ data: { "item:photos/p1": { id: "p1", src: "data:image/png;base64,iVBORw0KGgo=", at: 1, from: "partner" } } });
+    await renderPage(<Gallery />, "/gallery");
+    expect(screen.getByText(/1 shared photo/)).toBeInTheDocument();
+    expect(screen.getAllByAltText("Shared photo")).toHaveLength(1);
+  });
+
+  it("canvas has its drawing tools", async () => {
     enterRoom();
-    renderPage(<Presence />, "/presence");
-    expect(screen.getByText("Thinking of you")).toBeInTheDocument();
+    await renderPage(<Canvas />, "/canvas");
+    expect(screen.getByLabelText("Drawing area")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();
   });
 
-  it("planner shows a live countdown for the next plan", () => {
-    enterRoom({ data: { events: [{ id: "e1", title: "Movie Night", date: daysFromToday(3), time: "20:00", note: "", emoji: "🎬" }] } });
-    renderPage(<Planner />, "/planner");
-    expect(screen.getByText("Next up")).toBeInTheDocument();
-    expect(screen.getAllByText(/Movie Night/).length).toBeGreaterThan(0);
-  });
-
-  it("music plays the shared timeline", () => {
-    enterRoom({ data: { songs: [{ id: "s1", title: "Perfect", artist: "Ed Sheeran", duration: 263 }] } });
-    renderPage(<MusicPlayer />, "/music");
-    expect(screen.getAllByText("Perfect").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "Play" }));
-    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
-  });
-
-  it("letters keep sealed letters secret", () => {
-    enterRoom({
-      data: {
-        letters: [
-          { id: "l1", title: "Just because 💕", content: "You are my everything", unlockOn: daysFromToday(-1), createdAt: 1, from: "partner" },
-          { id: "l2", title: "Later", content: "Forever yours", unlockOn: daysFromToday(30), createdAt: 1, from: "partner" },
-        ],
-      },
-    });
-    renderPage(<Letters />, "/letters");
-    expect(screen.getByText("Just because 💕")).toBeInTheDocument();
-    expect(screen.queryByText(/Forever yours/)).not.toBeInTheDocument();
-  });
-
-  it("timeline", () => {
-    enterRoom({ data: { milestones: [{ id: "t1", title: "First Met", date: daysFromToday(-100), desc: "", emoji: "💫" }] } });
-    renderPage(<Timeline />, "/timeline");
-    expect(screen.getByText("First Met")).toBeInTheDocument();
+  it("music explains where to put songs when the folder is empty", async () => {
+    enterRoom();
+    await renderPage(<MusicPlayer />, "/music");
+    expect(await screen.findByText("Add your songs")).toBeInTheDocument();
   });
 });
 
 describe("chat", () => {
-  it("sends with Enter, saves it, and shows it as sending while offline", () => {
+  it("sends with Enter, saves it, and shows it as sending while offline", async () => {
     enterRoom();
     // Starts the real connection client; the test WebSocket never connects, like being offline.
-    renderPage(<Chat />, "/chat", { connect: true });
+    await renderPage(<Chat />, "/chat", { connect: true });
     const box = screen.getByRole("textbox", { name: "Message" });
     fireEvent.change(box, { target: { value: "Dinner at 8?" } });
     fireEvent.keyDown(box, { key: "Enter" });
     expect(screen.getByText("Dinner at 8?")).toBeInTheDocument();
     expect(screen.getByLabelText("Sending")).toBeInTheDocument();
-    const saved = Object.keys(window.localStorage).some((k) => k.endsWith(":messages") && window.localStorage.getItem(k)?.includes("Dinner at 8?"));
+    const saved = Object.keys(window.localStorage).some((k) => k.includes(":item:messages/") && window.localStorage.getItem(k)?.includes("Dinner at 8?"));
     expect(saved).toBe(true);
   });
 
-  it("shows your partner's message the moment it arrives", () => {
+  it("shows your partner's message the moment it arrives", async () => {
     enterRoom();
-    renderPage(<Chat />, "/chat");
+    await renderPage(<Chat />, "/chat");
     act(() => {
       engineRef?.receive({
         col: "messages",
@@ -175,52 +161,55 @@ describe("chat", () => {
     expect(screen.getByText("Miss you 🥺")).toBeInTheDocument();
   });
 
-  it("ignores empty messages", () => {
+  it("ignores empty messages", async () => {
     enterRoom();
-    renderPage(<Chat />, "/chat");
+    await renderPage(<Chat />, "/chat");
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   });
 });
 
-describe("games", () => {
+describe("games", { timeout: 15_000 }, () => {
   const filled = () => screen.queryAllByRole("button", { name: /^Square [0-9]/ });
 
-  it("before the partner joins: pass-and-play, with a winner and a locked board", async () => {
+  it("needs your partner in the room", async () => {
     enterRoom({ partnerJoined: false });
-    renderPage(<Games />, "/games");
-    const play = (n: number) => fireEvent.click(screen.getByRole("button", { name: `Play square ${n}` }));
-    play(1);
-    play(4);
-    play(2);
-    play(5);
-    play(3);
-    expect(await screen.findByText(/won this round/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Play square 6" }));
-    expect(within(screen.getByRole("button", { name: "Play square 6" })).queryByText("💜")).not.toBeInTheDocument();
+    await renderPage(<Games />, "/games");
+    expect(screen.getByText("Games need two players")).toBeInTheDocument();
   });
 
-  it("together: you can only play on your turn, and your partner's move appears live", async () => {
-    enterRoom({ partnerJoined: true });
-    renderPage(<Games />, "/games");
-    fireEvent.click(screen.getByRole("button", { name: "Play square 1" }));
-    expect(filled()).toHaveLength(1);
-    // Not my turn now — clicking does nothing.
-    fireEvent.click(screen.getByRole("button", { name: "Play square 2" }));
-    expect(filled()).toHaveLength(1);
-    expect(await screen.findByText(/Waiting for/)).toBeInTheDocument();
+  it("an invite waits until the partner joins", async () => {
+    enterRoom();
+    await renderPage(<Games />, "/games");
+    fireEvent.click(screen.getAllByRole("button", { name: /Invite/ })[0]);
+    expect(await screen.findByText(/Waiting for .* to join/)).toBeInTheDocument();
+    // The partner taps "Join game" on their phone.
+    act(() => {
+      engineRef?.receive({ col: "game", id: "doc", data: { game: "ttt", status: "playing", by: "partner", at: 5 }, ts: Date.now() + 1000, by: PARTNER_DEVICE });
+    });
+    expect(await screen.findByRole("button", { name: "Play square 1" }, { timeout: 4000 })).toBeInTheDocument();
+  });
 
-    // The partner plays square 5 on their phone (their "me" is our "partner").
+  it("joining your partner's invite starts the game; moves arrive live and turns are kept", async () => {
+    enterRoom();
+    await renderPage(<Games />, "/games");
+    act(() => {
+      engineRef?.receive({ col: "game", id: "doc", data: { game: "ttt", status: "invited", by: "me", at: 5 }, ts: Date.now() + 1000, by: PARTNER_DEVICE });
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /Join game/ }));
+    // The person who invited goes first, so tapping now does nothing.
+    fireEvent.click(await screen.findByRole("button", { name: "Play square 1" }, { timeout: 4000 }));
+    expect(filled()).toHaveLength(0);
     act(() => {
       engineRef?.receive({
         col: "ttt",
         id: "doc",
-        data: { board: ["partner", null, null, null, "me", null, null, null, null], turn: "partner", starter: "partner", round: 1 },
+        data: { board: [null, null, null, null, "me", null, null, null, null], turn: "partner", starter: "me", round: 1 },
         ts: Date.now() + 100_000,
         by: PARTNER_DEVICE,
       });
     });
-    expect(filled()).toHaveLength(2);
     expect(within(screen.getByRole("button", { name: /^Square 5,/ })).getByText("💜")).toBeInTheDocument();
-    expect(await screen.findByText(/Your move/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Play square 1" }));
+    expect(filled()).toHaveLength(2);
   });
 });

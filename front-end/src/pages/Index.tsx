@@ -1,17 +1,19 @@
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  Calendar,
-  Clock,
+  Camera,
   Gamepad2,
   Heart,
+  Image,
   Lock,
-  Mail,
   MessageCircleHeart,
   Music,
+  Palette,
+  Phone,
   ShieldCheck,
   Sparkles,
-  Users,
+  Trash2,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -27,15 +29,7 @@ import { OrbitingIcons } from "@/components/fx/OrbitingIcons";
 import { Reveal } from "@/components/fx/Reveal";
 import { SpotlightCard } from "@/components/fx/SpotlightCard";
 import { WordReveal } from "@/components/fx/WordReveal";
-import {
-  ChatDemo,
-  CountdownDemo,
-  GameDemo,
-  LockDemo,
-  MusicDemo,
-  PresenceDemo,
-  TimelineDemo,
-} from "@/components/landing/FeatureDemos";
+import { CallDemo, ChatDemo, CloseRoomDemo, GalleryCanvasDemo, GameDemo, HeartDemo, MusicDemo } from "@/components/landing/FeatureDemos";
 import { DARES, FEATURE_MARQUEE, LOVE_NOTES, TRUTHS, WOULD_YOU_RATHER } from "@/lib/content";
 import { NAV_ITEMS } from "@/lib/nav";
 import { EASE_OUT } from "@/lib/motion";
@@ -46,28 +40,28 @@ const FEATURES: { icon: LucideIcon; title: string; text: string; demo: ReactNode
   {
     icon: MessageCircleHeart,
     title: "Private chat",
-    text: "Real-time messages, photos, reactions, typing and seen ticks — end-to-end encrypted, just for the two of you.",
+    text: "Real-time messages, camera photos and short videos, reactions, typing and seen ticks — end-to-end encrypted, just for the two of you.",
     demo: <ChatDemo />,
     className: "md:col-span-2",
   },
-  { icon: Mail, title: "Time-locked letters", text: "Write today. They open on the day you choose.", demo: <LockDemo /> },
-  { icon: Calendar, title: "Shared planner", text: "Plan dates and watch the live countdown tick.", demo: <CountdownDemo /> },
-  { icon: Gamepad2, title: "Games for two", text: "Tic-tac-toe, truth or dare, memory match and more.", demo: <GameDemo /> },
-  { icon: Music, title: "Our playlist", text: "Keep every song that tells your story.", demo: <MusicDemo /> },
+  { icon: Video, title: "Voice & video calls", text: "Call each other right from your room — phone to phone, no extra app.", demo: <CallDemo /> },
+  { icon: Trash2, title: "Close room = gone", text: "One tap deletes every message, photo and drawing — from the server and both phones.", demo: <CloseRoomDemo /> },
+  { icon: Gamepad2, title: "Games for two", text: "Invite your partner — the game starts when they join.", demo: <GameDemo /> },
+  { icon: Music, title: "Your music, in sync", text: "Play your own songs on both phones at the same second.", demo: <MusicDemo /> },
   {
-    icon: Clock,
-    title: "Memory timeline",
-    text: "First date, first trip, first home — every milestone in one beautiful line.",
-    demo: <TimelineDemo />,
+    icon: Palette,
+    title: "Gallery + canvas",
+    text: "Share as many photos as you like, look at them on a voice chat, and draw or make cartoons together.",
+    demo: <GalleryCanvasDemo />,
     className: "md:col-span-2",
   },
-  { icon: Users, title: "Moods & presence", text: "Share how you feel with a single tap.", demo: <PresenceDemo /> },
+  { icon: Heart, title: "Missing-you hearts", text: "One tap tells your partner you miss them — live, or waiting for them.", demo: <HeartDemo /> },
 ];
 
 const STEPS = [
   { emoji: "🔐", title: "Create a room", text: "Add your name and the day your story began. No email, no password." },
   { emoji: "🔑", title: "Share the secret code", text: "Send the code (or QR) to your partner. Once they join, the room locks." },
-  { emoji: "💞", title: "Live, together", text: "Chat, plan, play and remember — every change shows up on both phones instantly." },
+  { emoji: "💞", title: "Live, together", text: "Chat, call, draw, play and listen together — every change shows up on both phones instantly." },
 ];
 
 const FAQ = [
@@ -88,8 +82,16 @@ const FAQ = [
     a: "A room holds exactly two devices. As soon as your partner joins, it's locked — nobody else can get in, even with the code.",
   },
   {
+    q: "Can we call each other?",
+    a: "Yes — voice and video calls go straight from one phone to the other. The call is set up through your encrypted room.",
+  },
+  {
+    q: "What happens when we close the room?",
+    a: "Everything is deleted: messages, photos, videos, drawings and games — on the server and on both phones. The code stops working.",
+  },
+  {
     q: "What if one of us is offline?",
-    a: "No problem. Messages, letters and plans wait safely (still encrypted) and arrive the moment your partner is back online.",
+    a: "No problem. Messages, photos and drawings wait safely (still encrypted) and arrive the moment your partner is back online.",
   },
 ];
 
@@ -187,7 +189,7 @@ const Index = () => {
             <WordReveal
               delay={0.3}
               className="mx-auto max-w-xl text-base text-muted-foreground sm:text-lg lg:mx-0"
-              text="UsSpace is a private room for you and your person, opened only with your secret code. Chat in real time, play, plan dates, share songs, write letters that unlock later, and keep every memory together."
+              text="UsSpace is a private room for you and your person, opened only with your secret code. Chat with photos and videos, call each other, share a gallery, draw together, play games and listen to your songs in sync."
             />
 
             <motion.div
@@ -226,8 +228,8 @@ const Index = () => {
             <OrbitingIcons
               className="scale-[0.8] sm:scale-100"
               rings={[
-                { radius: 95, duration: 22, icons: [MessageCircleHeart, Mail, Music] },
-                { radius: 165, duration: 34, icons: [Calendar, Gamepad2, Clock, Users, Sparkles], reverse: true },
+                { radius: 95, duration: 22, icons: [MessageCircleHeart, Video, Music] },
+                { radius: 165, duration: 34, icons: [Image, Gamepad2, Palette, Phone, Camera], reverse: true },
               ]}
             />
           </motion.div>
@@ -268,7 +270,7 @@ const Index = () => {
           <Reveal className="mx-auto mb-10 max-w-2xl text-center">
             <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary">Everything you share</p>
             <h2 className="text-3xl font-bold sm:text-5xl">
-              Eight little rooms, <span className="text-gradient">one big love.</span>
+              Six cosy rooms, <span className="text-gradient">one big love.</span>
             </h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-3">

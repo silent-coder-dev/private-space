@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ConnectionStatus, Presence, RoomErrorCode, SignalType } from "@/sync/client";
+import type { ConnectionStatus, Presence, RoomErrorCode, Signal, SignalType } from "@/sync/client";
 import type { SyncEngine } from "@/sync/engine";
 import type { RoomSession } from "@/sync/session";
 
@@ -14,9 +14,14 @@ export interface RoomContextValue {
   problem: { code: RoomErrorCode; message: string } | null;
   createRoom: (name: string, since: string) => Promise<void>;
   joinRoom: (code: string, name: string) => Promise<void>;
-  /** Leave the room on this device and delete its local copy. */
+  /** Delete this room's data from this device only. */
   leaveRoom: () => void;
-  signal: (type: SignalType) => void;
+  /** Close the room for BOTH of you: the server and both phones delete everything. */
+  closeRoom: () => void;
+  /** Send a live signal to your partner. Returns false if you're offline. */
+  signal: (type: SignalType, data?: unknown) => boolean;
+  /** Listen to live signals (calls use this). */
+  onSignal: (listener: (signal: Signal) => void) => () => void;
 }
 
 export const RoomContext = createContext<RoomContextValue | null>(null);
@@ -38,4 +43,5 @@ export const ROOM_ERRORS: Record<RoomErrorCode, string> = {
   left: "You left this room in another window.",
   timeout: "Can't reach the UsSpace server right now. Check your internet and try again.",
   network: "Can't reach the UsSpace server right now. Check your internet and try again.",
+  closed: "This room was closed and everything in it was deleted.",
 };

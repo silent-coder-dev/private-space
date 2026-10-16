@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, CheckCheck, Clock3, Heart, ImagePlus, Lock, MoreVertical, Send, Smile, Trash2 } from "lucide-react";
+import { Camera, Check, CheckCheck, Clock3, Heart, ImagePlus, Lock, MoreVertical, Phone, Send, Smile, Trash2, Video } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -16,13 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CameraCapture } from "@/components/chat/CameraCapture";
 import { InitialAvatar } from "@/components/layout/InitialAvatar";
+import { useCall } from "@/call/call";
 import { useRoom } from "@/context/room";
 import { useSpace } from "@/context/space";
 import { useNow } from "@/hooks/use-now";
 import { fireFrom } from "@/lib/burst";
 import { CHAT_EMOJIS, REACTIONS } from "@/lib/content";
-import { compressImage } from "@/lib/image";
+import { compressPhoto, readVideo } from "@/lib/media";
 import { DEFAULT_READ } from "@/lib/seed";
 import { uid } from "@/lib/storage";
 import { formatClock, formatDayLabel, relativeTime } from "@/lib/time";
@@ -55,6 +57,8 @@ const Chat = () => {
   const [visible, setVisible] = useState(PAGE);
   const [viewer, setViewer] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const call = useCall();
   const now = useNow(30_000);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -113,7 +117,7 @@ const Chat = () => {
     return out;
   }, [shown, now]);
 
-  const add = (msg: Pick<ChatMessage, "text" | "image">) => {
+  const add = (msg: Pick<ChatMessage, "text" | "image" | "video">) => {
     stickToBottom.current = true;
     chat.upsert({ ...msg, id: uid(), sender: "me", at: engine?.now() ?? Date.now(), reactions: [] });
   };
@@ -139,7 +143,7 @@ const Chat = () => {
     e.target.value = "";
     if (!file) return;
     try {
-      add({ image: await compressImage(file) });
+      add(file.type.startsWith("video/") ? { video: await readVideo(file) } : { image: await compressPhoto(file) });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not send that photo.");
     }
@@ -170,10 +174,8 @@ const Chat = () => {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
     const t = Date.now();
-    if (value && t - lastTyping.current > TYPING_EVERY_MS) {
-      lastTyping.current = t;
-      signal("typing");
-    }
+    // Only count it as sent if it really went out (right after opening the app we may still be connecting).
+    if (value && t - lastTyping.current > TYPING_EVERY_MS && signal("typing")) lastTyping.current = t;
   };
 
   const onScroll = () => {
@@ -229,6 +231,12 @@ const Chat = () => {
             </motion.p>
           </AnimatePresence>
         </div>
+        <Button variant="ghost" size="icon" onClick={() => call.start("audio")} aria-label="Voice call" disabled={call.phase !== "idle"}>
+          <Phone />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => call.start("video")} aria-label="Video call" disabled={call.phase !== "idle"}>
+          <Video />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -340,9 +348,19 @@ const Chat = () => {
             size="icon"
             className="shrink-0 rounded-full text-muted-foreground hover:text-primary"
             onClick={() => fileRef.current?.click()}
-            aria-label="Send a photo"
+            aria-label="Send a photo or video"
           >
             <ImagePlus />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 rounded-full text-muted-foreground hover:text-primary"
+            onClick={() => setCameraOpen(true)}
+            aria-label="Open camera"
+          >
+            <Camera />
           </Button>
           <Popover>
             <PopoverTrigger asChild>
@@ -393,7 +411,8 @@ const Chat = () => {
             <Send className="h-4 w-4" />
           </motion.button>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickImage} />
+        <input ref={fileRef} type="file" accept="image/*,video/*" hidden onChange={pickImage} />
+        <CameraCapture open={cameraOpen} onOpenChange={setCameraOpen} onSend={(shot) => add(shot)} />
         <p className="mt-1.5 hidden text-center text-[11px] text-muted-foreground/60 sm:block">
           Enter to send · Shift + Enter for a new line · Double-click a message to ❤️ it
         </p>
@@ -455,7 +474,8 @@ const MessageBubble = memo(function MessageBubble({
   onOpenImage: (src: string) => void;
 }) {
   const mine = msg.sender === "me";
-  const big = !msg.image && isEmojiOnly(msg.text);
+  const media = msg.image || msg.video;
+  const big = !media && isEmojiOnly(msg.text);
   const status = delivery ? DELIVERY_ICON[delivery] : null;
 
   return (
@@ -488,17 +508,22 @@ const MessageBubble = memo(function MessageBubble({
         </div>
 
         <div
-          onDoubleClick={() => onReact(msg, "❤️")}
+          onDoubleClick={() => {
+            window.getSelection()?.removeAllRanges(); // a double-click also selects a word — clear it
+            onReact(msg, "❤️");
+          }}
           className={cn(
             "select-text whitespace-pre-wrap break-words text-sm leading-relaxed",
-            big ? "text-5xl leading-none" : msg.image ? "overflow-hidden rounded-2xl p-1" : "rounded-2xl px-4 py-2.5",
+            big ? "text-5xl leading-none" : media ? "overflow-hidden rounded-2xl p-1" : "rounded-2xl px-4 py-2.5",
             !big && (mine ? "gradient-primary text-white shadow-lg shadow-primary/20" : "border border-white/10 bg-card/80 backdrop-blur"),
             !big && mine && endsGroup && "rounded-br-md",
             !big && !mine && endsGroup && "rounded-bl-md",
             delivery === "sending" && "opacity-80",
           )}
         >
-          {msg.image ? (
+          {msg.video ? (
+            <video src={msg.video} controls playsInline preload="metadata" className="max-h-80 w-full max-w-[280px] rounded-xl bg-black" />
+          ) : msg.image ? (
             <button type="button" onClick={() => onOpenImage(msg.image!)} className="block" aria-label="Open photo">
               <img src={msg.image} alt="Shared photo" loading="lazy" className="max-h-72 w-full max-w-[260px] rounded-xl object-cover" />
             </button>

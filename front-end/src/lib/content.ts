@@ -106,24 +106,28 @@ export const WOULD_YOU_RATHER: [string, string][] = [
   ["Explore a new country", "Revisit a favourite place"],
 ];
 
+export const GAME_NAMES: Record<string, string> = {
+  ttt: "Tic-Tac-Toe",
+  tod: "Truth or Dare",
+  memory: "Memory Match",
+  wyr: "Would You Rather",
+};
+
 export const MEMORY_SYMBOLS = ["💖", "🌹", "🧸", "💌", "🍫", "🎵", "🌙", "💍"];
 
-export const EVENT_EMOJIS = ["💕", "🎬", "🍽️", "✈️", "🎂", "🎁", "☕", "🌹", "🎉", "🏖️", "🎵", "📞"];
 
-export const MEMORY_EMOJIS = ["💫", "☕", "❤️", "✈️", "🏠", "💍", "🎉", "📸", "🌅", "🐶", "🎓", "🌹"];
 
 export const FEATURE_MARQUEE = [
   "🔐 End-to-end encrypted",
   "🔑 Secret room code",
   "⚡ Real-time sync",
-  "💬 Private chat",
-  "💌 Time-locked letters",
+  "💬 Live chat",
+  "📸 Camera photos & videos",
+  "📞 Voice & video calls",
+  "🖼️ Shared gallery",
+  "🎨 Draw together",
   "🎮 Games for two",
-  "📅 Shared planner",
-  "🎵 Our playlist",
-  "🕰️ Memory timeline",
-  "💗 Mood check-ins",
-  "✨ Heart bursts",
-  "🔒 Locked to 2 devices",
-  "⌨️ Quick search (Ctrl + K)",
+  "🎵 Music in sync",
+  "💖 Missing-you hearts",
+  "🧨 Close room = delete everything",
 ];

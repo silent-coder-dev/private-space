@@ -197,19 +197,6 @@
     z-index: 1;
   }
 
-  /* Lined writing paper for letters */
-  .paper {
-    background-color: hsl(36 60% 96%);
-    background-image: repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent 31px,
-      hsl(349 60% 80% / 0.45) 31px,
-      hsl(349 60% 80% / 0.45) 32px
-    );
-    color: hsl(236 30% 18%);
-  }
-
   .no-scrollbar {
     scrollbar-width: none;
   }
@@ -284,6 +271,11 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(349 100% 65%);
   background-clip: padding-box;
+}
+
+/* Privacy: blur everything while the app is in the background (app switcher, screen sharing). */
+.privacy-blur #root {
+  filter: blur(28px);
 }
 
 /* Respect people who prefer less motion */

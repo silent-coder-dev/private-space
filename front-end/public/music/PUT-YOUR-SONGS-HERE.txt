@@ -1,0 +1,2 @@
+Put your downloaded songs here (.mp3, .m4a, .ogg, .wav, .flac, .opus).
+They show up in the Music room automatically. Redeploy after adding new songs.

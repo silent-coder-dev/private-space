@@ -1,14 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Heart, Search } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ConnectionPill } from "@/components/layout/ConnectionPill";
 import { InitialAvatar } from "@/components/layout/InitialAvatar";
-import { useRoom } from "@/context/room";
 import { useSpace } from "@/context/space";
-import { fireFrom } from "@/lib/burst";
+import { useMissYou } from "@/hooks/use-miss-you";
+import { TopbarMusic } from "@/music/MusicControls";
 import { findNavItem } from "@/lib/nav";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
@@ -17,13 +16,8 @@ export function Topbar() {
   const { pathname } = useLocation();
   const item = findNavItem(pathname);
   const { profile, setCommandOpen, setSettingsOpen } = useSpace();
-  const { signal } = useRoom();
-
-  const sendHeart = (e: React.MouseEvent<HTMLButtonElement>) => {
-    fireFrom(e.currentTarget, { count: 14 });
-    signal("heart");
-    toast.success(`Heart sent to ${profile.partner} 💖`);
-  };
+  const missYou = useMissYou();
+  const sendHeart = (e: React.MouseEvent<HTMLButtonElement>) => missYou(e.currentTarget);
 
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-white/5 bg-background/50 px-4 backdrop-blur-xl md:px-6">
@@ -33,7 +27,8 @@ export function Topbar() {
         <div className="grid h-8 w-8 place-items-center rounded-lg gradient-primary">
           <Heart className="h-4 w-4 fill-white text-white" />
         </div>
-        <span className="font-heading text-lg font-bold text-gradient">UsSpace</span>
+        {/* On narrow phones the heart logo is enough — it leaves room for the music, heart and profile buttons. */}
+        <span className="hidden font-heading text-lg font-bold text-gradient min-[440px]:inline">UsSpace</span>
       </Link>
 
       <div className="hidden h-5 w-px bg-border md:block" />
@@ -74,11 +69,13 @@ export function Topbar() {
           <Search />
         </Button>
 
+        <TopbarMusic />
+
         <Button
           variant="ghost"
           size="icon"
           onClick={sendHeart}
-          aria-label={`Send a heart to ${profile.partner}`}
+          aria-label={`Tell ${profile.partner} you're missing them`}
           className="text-primary hover:bg-primary/10 hover:text-primary"
         >
           <Heart className="fill-primary" />

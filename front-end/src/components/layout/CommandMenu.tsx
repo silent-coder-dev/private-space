@@ -1,7 +1,6 @@
-import { CalendarPlus, Gamepad2, Heart, House, PenLine, Settings2, Sparkles } from "lucide-react";
+import { Gamepad2, Heart, House, ImageUp, Palette, Phone, Settings2, Video } from "lucide-react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import {
   CommandDialog,
   CommandEmpty,
@@ -11,15 +10,16 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { useRoom } from "@/context/room";
+import { useCall } from "@/call/call";
 import { useSpace } from "@/context/space";
-import { fireHearts } from "@/lib/burst";
+import { useMissYou } from "@/hooks/use-miss-you";
 import { NAV_ITEMS } from "@/lib/nav";
 
 /** Ctrl/⌘ + K quick search for pages and actions. */
 export function CommandMenu() {
   const { commandOpen, setCommandOpen, setSettingsOpen, profile } = useSpace();
-  const { signal } = useRoom();
+  const missYou = useMissYou();
+  const call = useCall();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,19 +41,16 @@ export function CommandMenu() {
 
   const actions = [
     {
-      label: "Send a heart",
-      hint: `to ${profile.partner}`,
+      label: "I'm missing you",
+      hint: `send ${profile.partner} a 💖`,
       icon: Heart,
-      action: () => {
-        fireHearts({ count: 24 });
-        signal("heart");
-        toast.success(`Heart sent to ${profile.partner} 💖`);
-      },
+      action: () => missYou(),
     },
-    { label: "Write a love letter", hint: "Letters", icon: PenLine, action: () => navigate("/letters?compose=1") },
-    { label: "Add a plan", hint: "Planner", icon: CalendarPlus, action: () => navigate("/planner?new=1") },
-    { label: "Add a memory", hint: "Timeline", icon: Sparkles, action: () => navigate("/timeline?new=1") },
-    { label: "Play a game", hint: "Games", icon: Gamepad2, action: () => navigate("/games") },
+    { label: "Video call", hint: profile.partner, icon: Video, action: () => call.start("video") },
+    { label: "Voice call", hint: profile.partner, icon: Phone, action: () => call.start("audio") },
+    { label: "Add photos", hint: "Gallery", icon: ImageUp, action: () => navigate("/gallery") },
+    { label: "Draw together", hint: "Canvas", icon: Palette, action: () => navigate("/canvas") },
+    { label: "Invite to a game", hint: "Games", icon: Gamepad2, action: () => navigate("/games") },
     { label: "Profile, room code & settings", hint: "Settings", icon: Settings2, action: () => setSettingsOpen(true) },
     { label: "Open the welcome page", hint: "Landing", icon: House, action: () => navigate("/") },
   ];
@@ -62,7 +59,7 @@ export function CommandMenu() {
     <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
       <CommandInput placeholder="Search pages and actions…" />
       <CommandList>
-        <CommandEmpty>Nothing found. Try “chat” or “letter”.</CommandEmpty>
+        <CommandEmpty>Nothing found. Try “chat” or “music”.</CommandEmpty>
         <CommandGroup heading="Go to">
           {NAV_ITEMS.map((item) => (
             <CommandItem

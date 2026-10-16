@@ -1,37 +1,25 @@
-import {
-  Calendar,
-  Clock,
-  Gamepad2,
-  LayoutDashboard,
-  Mail,
-  MessageCircleHeart,
-  Music,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Gamepad2, Image, LayoutDashboard, MessageCircleHeart, Music, Palette, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   title: string;
   url: string;
   icon: LucideIcon;
   description: string;
-  group: "Our space" | "Together" | "Memories";
+  group: "Us" | "Create" | "Play";
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { title: "Home", url: "/dashboard", icon: LayoutDashboard, description: "Your daily overview", group: "Our space" },
-  { title: "Chat", url: "/chat", icon: MessageCircleHeart, description: "Private messages", group: "Our space" },
-  { title: "Presence", url: "/presence", icon: Users, description: "Moods and status", group: "Our space" },
-  { title: "Games", url: "/games", icon: Gamepad2, description: "Play together", group: "Together" },
-  { title: "Planner", url: "/planner", icon: Calendar, description: "Dates and countdowns", group: "Together" },
-  { title: "Music", url: "/music", icon: Music, description: "Our shared playlist", group: "Together" },
-  { title: "Letters", url: "/letters", icon: Mail, description: "Time-locked love letters", group: "Memories" },
-  { title: "Timeline", url: "/timeline", icon: Clock, description: "Our story so far", group: "Memories" },
+  { title: "Home", url: "/dashboard", icon: LayoutDashboard, description: "Your daily overview", group: "Us" },
+  { title: "Chat", url: "/chat", icon: MessageCircleHeart, description: "Messages, photos, videos & calls", group: "Us" },
+  { title: "Gallery", url: "/gallery", icon: Image, description: "Shared photos + voice chat", group: "Create" },
+  { title: "Canvas", url: "/canvas", icon: Palette, description: "Draw and make cartoons together", group: "Create" },
+  { title: "Games", url: "/games", icon: Gamepad2, description: "Invite and play together", group: "Play" },
+  { title: "Music", url: "/music", icon: Music, description: "Your songs, in sync", group: "Play" },
 ];
 
-export const NAV_GROUPS = ["Our space", "Together", "Memories"] as const;
+export const NAV_GROUPS = ["Us", "Create", "Play"] as const;
 
 /** Items shown in the bottom bar on phones (the rest live under "More"). */
-export const MOBILE_NAV_URLS = ["/dashboard", "/chat", "/games", "/planner"];
+export const MOBILE_NAV_URLS = ["/dashboard", "/chat", "/gallery", "/games"];
 
 export const findNavItem = (pathname: string) => NAV_ITEMS.find((item) => item.url === pathname);

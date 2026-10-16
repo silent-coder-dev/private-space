@@ -22,14 +22,16 @@ usspace-your-private-haven/
 └── 🖥️ front-end/         ← everything: the website AND its small real-time server
     ├── 📚 doc/           ← the 5 guides (you are reading one)
     ├── ✨ src/           ← the website (React)
-    ├── 🛰️ server/        ← the relay server (Node.js, WebSocket)
-    └── 🧪 e2e/           ← real-browser tests
+    ├── 🛰️ server/        ← the relay + production server (Node.js)
+    ├── 🎵 public/music/  ← YOUR songs (played in sync on both phones)
+    └── 🧪 e2e/           ← real-browser tests (two browsers, real video call)
 ```
 
 | Folder | In one line |
 | --- | --- |
-| `front-end/src/` | Everything you see and use in the browser, plus encryption and live sync |
-| `front-end/server/` | The tiny relay that passes encrypted updates between the two phones in a room |
+| `front-end/src/` | Everything you see and use in the browser, plus encryption, live sync, calls and music |
+| `front-end/server/` | The tiny relay that passes encrypted updates between the two phones, and the production web server |
+| `front-end/public/music/` | Drop your downloaded songs here. They appear in the Music room automatically |
 | `front-end/doc/` | Easy-English guides: problem, approaches, design, flowcharts, this map |
 | `front-end/e2e/` | Playwright tests that use two real browsers |
 
@@ -50,19 +52,20 @@ mindmap
       server
         relay
         room store
+        music list
         production server
+      public
+        music folder
       src
         pages
           Landing
           Start create or join
           Home
           Chat
-          Presence
+          Gallery
+          Canvas
           Games
-          Planner
           Music
-          Letters
-          Timeline
           404
         sync
           crypto
@@ -70,22 +73,29 @@ mindmap
           client
           hooks
           session
+        call
+          WebRTC calls
+          call screen
+        music
+          one global player
+          controls
         components
-          fx effects
-          layout
+          fx effects + 3D heart
+          layout + PIN lock
+          chat camera
           games
-          forms
           landing
           ui kit
         context
           room
           space
         lib
+          IndexedDB
+          media
           storage
           time
           games
           content
-          seed
         test
       e2e
       Dockerfile
@@ -103,8 +113,8 @@ usspace-your-private-haven/
 └── front-end/                        🖥️ The website + its relay server
     ├── doc/                          📚 Five easy-English guides
     │   ├── 01-problem-and-solution.md    What problem, what website, which users
-    │   ├── 02-approaches.md              How it was built, security, real-time sync, bugs fixed
-    │   ├── 03-design.md                  Fonts, colours, motion, 60+ template patterns
+    │   ├── 02-approaches.md              How it was built, security, sync, calls, music, bugs fixed
+    │   ├── 03-design.md                  Fonts, colours, motion, 3D, 70 template patterns
     │   ├── 04-flowcharts.md              Diagrams of every flow
     │   ├── 05-directory-map.md           This map
     │   └── screenshots/                  Pictures used in the README
@@ -112,134 +122,157 @@ usspace-your-private-haven/
     ├── index.html                    The one HTML page: title, meta tags, fonts
     ├── package.json                  Scripts (dev, build, start, test, test:e2e…) and libraries
     ├── package-lock.json             Exact library versions (npm)
-    ├── vite.config.ts                Dev server (port 8080), runs the relay on /ws too
+    ├── vite.config.ts                Dev server (port 8080): relay on /ws + music list
     ├── vitest.config.ts              Unit-test settings
-    ├── playwright.config.ts          Browser-test settings (desktop + phone)
+    ├── playwright.config.ts          Browser-test settings (desktop + phone, fake camera)
     ├── playwright-fixture.ts         Shared Playwright helpers
-    ├── tailwind.config.ts            Fonts, colours, keyframe animations
+    ├── tailwind.config.ts            Fonts, colours, keyframe animations (incl. 3D spin)
     ├── postcss.config.js             Runs Tailwind + Autoprefixer
     ├── eslint.config.js              Code-style rules (app + server)
     ├── tsconfig*.json                TypeScript settings
     ├── components.json               shadcn/ui settings
     ├── Dockerfile                    Build + run the site and relay in one container
     ├── .dockerignore                 Files Docker should skip
-    ├── .env.example                  Optional VITE_SYNC_URL (relay on another address)
+    ├── .env.example                  Optional VITE_SYNC_URL and TURN settings for calls
     ├── .gitignore                    Files git should skip
     ├── README.md                     Short front-end guide
     │
-    ├── server/                       🛰️ The relay (plain Node.js, no build step)
-    │   ├── relay.mjs                 Rooms, 2-device lock, auth check, rate limits, live events
-    │   ├── store.mjs                 Saves encrypted events per room (newest per item)
-    │   ├── index.mjs                 Production server: dist/ + /ws + security headers + gzip
-    │   └── relay.d.mts               Type hints for the relay
+    ├── server/                       🛰️ Plain Node.js, no build step
+    │   ├── relay.mjs                 Rooms, 2-device lock, auth check, rate limits, live events, close room
+    │   ├── store.mjs                 Encrypted events per room (memory only, unless USSPACE_DATA_DIR)
+    │   ├── music.mjs                 Lists the songs in the music folder
+    │   ├── index.mjs                 Production server: dist/ + /ws + music + security headers + gzip
+    │   ├── relay.d.mts               Type hints for the relay
+    │   └── music.d.mts               Type hints for the music list
     │
     ├── public/                       Files served as they are
+    │   ├── music/                    🎵 YOUR songs (61 right now) + PUT-YOUR-SONGS-HERE.txt
     │   ├── favicon.svg               Heart logo
     │   ├── placeholder.svg           Spare image
     │   └── robots.txt                Rules for search engines
     │
     ├── e2e/
-    │   └── smoke.spec.ts             Two browsers: create, join, chat live, wrong code, full room
+    │   └── smoke.spec.ts             Two browsers: create, join, live chat, wrong code, full room,
+    │                                 every room opens, game invite + a real video call
     │
     └── src/                          ✨ The app
         ├── main.tsx                  Starts React
         ├── App.tsx                   Providers, routes, room guard, lazy pages
-        ├── index.css                 Design tokens + glass, gradient, beam effects
+        ├── index.css                 Design tokens + glass, gradient, beam effects, privacy blur
         ├── vite-env.d.ts             Type hints for Vite
         │
         ├── pages/                    One file per screen
         │   ├── Index.tsx             Landing page
         │   ├── Start.tsx             Create a room · Join a room · Secret code + QR
-        │   ├── Dashboard.tsx         Home: days together, mood, love note, live room cards
-        │   ├── Chat.tsx              Real-time chat: typing, ticks, photos, reactions
-        │   ├── Presence.tsx          Online / last seen, moods, status, nudges
-        │   ├── Games.tsx             Game tabs
-        │   ├── Planner.tsx           Shared plans, live countdown, calendar
-        │   ├── MusicPlayer.tsx       Shared playlist + shared playback timeline
-        │   ├── Letters.tsx           Time-locked letters with read receipts
-        │   ├── Timeline.tsx          Shared milestones with scroll line
+        │   ├── Dashboard.tsx         Home: 3D heart, days together, mood, love note, missing you, calls
+        │   ├── Chat.tsx              Live chat: typing, ticks, photos, videos, camera, reactions, calls
+        │   ├── Gallery.tsx           Shared photos, full-screen viewer, "Show Kabir", voice chat
+        │   ├── Canvas.tsx            Draw together, stickers, photos, cartoon filter, save PNG
+        │   ├── Games.tsx             Invite → partner joins → play
+        │   ├── MusicPlayer.tsx       Vinyl, shared controls, searchable playlist
         │   └── NotFound.tsx          Friendly 404
         │
-        ├── sync/                     🔐 Encryption + live sync (the new heart of the app)
+        ├── sync/                     🔐 Encryption + live sync
         │   ├── crypto.ts             Secret codes, key derivation, encrypt / decrypt
-        │   ├── engine.ts             Shared data store: newest wins, deletes, me ↔ partner
-        │   ├── client.ts             WebSocket: reconnect, outbox, catch-up, clock sync
-        │   ├── hooks.ts              useSyncedList / useSyncedDoc / usePendingIds
-        │   └── session.ts            Which room this device is in
+        │   ├── engine.ts             Shared data: newest wins, deletes, me ↔ partner, IndexedDB saving
+        │   ├── client.ts             WebSocket: reconnect, outbox, catch-up, clock sync, signals, close
+        │   ├── hooks.ts              useSyncedList / useSyncedDoc / usePendingIds / useEngine
+        │   └── session.ts            Which room this phone is in
+        │
+        ├── call/                     📞 Voice and video calls
+        │   ├── call.ts               useCall() + call state shape
+        │   ├── CallProvider.tsx      Ring, accept, offer / answer (WebRTC), mute, camera, flip, ringtone
+        │   └── CallOverlay.tsx       Ringing screen, full-screen call, floating call bar
+        │
+        ├── music/                    🎵 One music player for the whole app
+        │   ├── music.ts              useMusic() + what the player can do
+        │   ├── MusicProvider.tsx     Song list, shared timeline, audio element, lock-screen controls
+        │   └── MusicControls.tsx     Progress bar, buttons, volume, the 🎵 top-bar pop-up
         │
         ├── context/                  🌐 Shared React state
         │   ├── room.ts               useRoom() + friendly room errors
-        │   ├── RoomProvider.tsx      Create, join, leave, status, presence, typing, hearts, toasts
+        │   ├── RoomProvider.tsx      Create, join, leave, close, status, presence, signals, pop-ups
         │   ├── space.ts              useSpace()
         │   └── SpaceProvider.tsx     Me + partner + couple → one easy profile
         │
         ├── components/
-        │   ├── fx/                   ✨ Animated effects (13 files)
-        │   ├── layout/               🧱 App frame (12 files, incl. ConnectionPill, RequireRoom)
-        │   ├── games/                🎮 The four games
-        │   ├── forms/                📝 Shared form pop-up + emoji picker
+        │   ├── fx/                   ✨ Animated effects (14 files, incl. Heart3D)
+        │   ├── layout/               🧱 App frame (13 files, incl. AppLock, ConnectionPill, RequireRoom)
+        │   ├── chat/                 📷 CameraCapture (photos + video clips)
+        │   ├── games/                🎮 The four two-player games
         │   ├── landing/              🌌 Mini demos for landing cards
         │   └── ui/                   🧩 shadcn/ui base parts (49 files)
         │
         ├── hooks/
+        │   ├── use-miss-you.ts       💖 "I'm missing you" (live or as a chat message)
         │   ├── use-now.ts            Current time that refreshes
         │   ├── use-mobile.tsx        Is this a phone-size screen?
         │   └── use-toast.ts          shadcn toast helper
         │
         ├── lib/                      🧠 Plain logic
+        │   ├── idb.ts                Small IndexedDB helper (big storage for photos and videos)
+        │   ├── media.ts              Shrink photos, read videos, cartoon filter, best video format
         │   ├── storage.ts            Per-room local storage + usePersistentState
         │   ├── time.ts               Local dates, countdowns, anniversaries
         │   ├── games.ts              Winner check, shuffle, memory deck
-        │   ├── content.ts            All words: notes, prompts, moods, emoji
-        │   ├── seed.ts               Defaults + starter songs / memory / anniversary plan
+        │   ├── content.ts            All words: love notes, prompts, moods, game names
+        │   ├── seed.ts               Starting values (names, player, boards)
         │   ├── types.ts              Shapes of shared data
-        │   ├── nav.ts                Menu items
+        │   ├── nav.ts                Menu items + phone dock
         │   ├── burst.ts              Heart-burst event bus
-        │   ├── image.ts              Photo shrinking
         │   ├── motion.ts             Shared animation timings
         │   └── utils.ts              cn() class helper
         │
         └── test/                     🧪 79 Vitest tests
             ├── setup.ts              Browser mocks (incl. an offline WebSocket)
-            ├── crypto.test.ts        Codes, keys, encryption
-            ├── engine.test.ts        Newest-wins, deletes, me ↔ partner
-            ├── relay.test.ts         The real relay server, end to end
-            ├── pages.test.tsx        Every page inside a room
-            ├── routing.test.tsx      Room guard, layout, 404
-            ├── time.test.ts
-            ├── games.test.ts
-            └── storage.test.tsx
+            ├── crypto.test.ts        Codes, keys, encryption (12)
+            ├── engine.test.ts        Newest-wins, deletes, me ↔ partner, all-or-nothing saving (11)
+            ├── relay.test.ts         The real relay server, incl. close room (9)
+            ├── pages.test.tsx        Every page inside a room, game invites (13)
+            ├── routing.test.tsx      Room guard, layout, 404 (5)
+            ├── time.test.ts          Dates and anniversaries (17)
+            ├── games.test.ts         Winner check, decks (6)
+            └── storage.test.tsx      Per-room storage (6)
 ```
 
 ---
 
 ## 5.4 How the folders depend on each other
 
-Arrows mean "uses". Pages sit at the top. The phones talk to the server only through `sync/client.ts`.
+Arrows mean "uses". Pages sit at the top. The phones talk to the server only through `sync/client.ts`, and to each other directly only for calls.
 
 ```mermaid
 flowchart TD
     App["App.tsx"] --> Context["context/<br/>RoomProvider · SpaceProvider"]
+    App --> Call["call/<br/>CallProvider"]
+    App --> Music["music/<br/>MusicProvider"]
     App --> Pages["pages/"]
     Pages --> Layout["components/layout/"]
     Pages --> FX["components/fx/"]
     Pages --> Games["components/games/"]
-    Pages --> Forms["components/forms/"]
+    Pages --> Cam["components/chat/"]
     Pages --> UI["components/ui/"]
+    Pages --> Media["lib/media.ts"]
     Pages --> Hooks["sync/hooks.ts"]
     Games --> Hooks
+    Music --> Hooks
+    Call --> Context
     Context --> Hooks
     Hooks --> Engine["sync/engine.ts"]
     Context --> Client["sync/client.ts"]
     Client --> Crypto["sync/crypto.ts"]
     Client --> Engine
-    Engine --> Storage["lib/storage.ts"]
-    Storage --> LS[("localStorage<br/>per room")]
+    Engine --> IDB["lib/idb.ts"]
+    IDB --> DB[("IndexedDB<br/>per room")]
     Client <-->|"WebSocket /ws<br/>encrypted"| Relay["server/relay.mjs"]
-    Relay --> Store["server/store.mjs"]
-    Store --> Disk[(".usspace-data/<br/>encrypted rooms")]
+    Relay --> Store["server/store.mjs<br/>(memory)"]
+    Music -->|"/music/manifest.json<br/>+ song files"| Prod
     Prod["server/index.mjs"] --> Relay
+    Prod --> MusicList["server/music.mjs"]
+    MusicList --> Songs[("public/music")]
     Vite["vite.config.ts (dev)"] --> Relay
+    Vite --> MusicList
+    Call <-.->|"WebRTC<br/>phone to phone"| Peer["📱 Partner"]
     Tests["src/test/"] -.-> Crypto
     Tests -.-> Engine
     Tests -.-> Relay
@@ -250,59 +283,70 @@ flowchart TD
 
 ## 5.5 Folder by folder
 
-### `front-end/server/`: the relay
+### `front-end/server/`: the relay and production server
 
 | File | Job |
 | --- | --- |
-| `relay.mjs` | Accepts WebSocket connections on `/ws`. Handles **create**, **join** (auth hash check, 2-device lock), **put** (store + forward), **signal** (forward only), **leave**. Rate limits, lockout after wrong codes, heartbeats. |
-| `store.mjs` | Keeps each room's **encrypted** events, only the newest per item, with size caps. Saves to disk every second (safe write: temp file + rename). Deletes rooms unused for 180 days. |
-| `index.mjs` | Production: serves `dist/` with a strict Content-Security-Policy and other security headers, gzip, long-term caching and a `/healthz` check, plus the relay. |
+| `relay.mjs` | Accepts WebSocket connections on `/ws`. Handles **create**, **join** (auth hash check, 2-device lock), **put** (store + forward), **signal** (forward only: typing, hearts, call set-up), **leave**, and **close** (delete the room, tell both phones, remember it as closed for 30 days). Rate limits, lockout after wrong codes, heartbeats. |
+| `store.mjs` | Keeps each room's **encrypted** events, only the newest per item, max 60 MB per room. **Memory only** by default. With `USSPACE_DATA_DIR` it also saves to disk (safe write: temp file + rename). |
+| `music.mjs` | Reads the music folder and returns `{ songs: [{ id, url, title }] }`, sorted A–Z. The title is the file name without `.mp3` (underscores become spaces). |
+| `index.mjs` | Production: serves `dist/` with a strict Content-Security-Policy and other security headers, gzip, long-term caching, **partial (Range) answers for music**, `/music/manifest.json`, a `/healthz` check, plus the relay. |
 
 ### `front-end/src/sync/`: encryption and live sync
 
 | File | Main exports |
 | --- | --- |
-| `crypto.ts` | `generateCode`, `normalizeCode`, `isValidCode`, `deriveKeys`, `seal`, `open`, `itemKey`, `randomId` |
-| `engine.ts` | `SyncEngine` (`put`, `receive`, `get`, `subscribe`, `snapshot`), `COLUMNS`, `swap` |
-| `client.ts` | `SyncClient` (connect, reconnect, outbox, catch-up, signals), `relayUrl` |
+| `crypto.ts` | `generateCode`, `formatCode`, `normalizeCode`, `isValidCode`, `deriveKeys`, `seal`, `open`, `itemKey`, `randomId` |
+| `engine.ts` | `SyncEngine` (`put`, `receive`, `get`, `subscribe`, `snapshot`, `getLocal`, `setLocal`, `wipe`), `COLUMNS`, `swap`, `openPersistence` |
+| `client.ts` | `SyncClient` (connect, reconnect, outbox, catch-up, `sendSignal`, `closeRoom`), `relayUrl` |
 | `hooks.ts` | `useSyncedList`, `useSyncedDoc`, `usePendingIds`, `useEngine` |
 | `session.ts` | `loadSession`, `saveSession`, `clearSession` |
+
+**Shared columns** (in `engine.ts`): `messages`, `photos`, `strokes`, `stickers` (lists) · `member`, `read`, `couple`, `player`, `game`, `gview`, `ttt`, `tod`, `memory`, `wyr`, `scores` (single items).
 
 ### `front-end/src/pages/`: the screens
 
 | File | Route | What you see |
 | --- | --- | --- |
-| `Index.tsx` | `/` | Hero, highlights, numbers, feature bento, 3 steps, FAQ, final CTA |
+| `Index.tsx` | `/` | Hero, highlights, feature bento, 3 steps, FAQ, final CTA |
 | `Start.tsx` | `/start` | Create / Join cards → forms → secret code with Copy / Share / QR → "partner joined" |
-| `Dashboard.tsx` | `/dashboard` | Invite card (until your partner joins), days together, anniversary ring, mood, love note, live room cards |
-| `Chat.tsx` | `/chat` | Header with online / typing / last seen, encrypted-chat notice, messages with ticks, composer |
-| `Presence.tsx` | `/presence` | You ↔ partner, status editor, online switch, nudge heart, activity |
-| `Games.tsx` | `/games` | Tabs for the 4 games |
-| `Planner.tsx` | `/planner` | Live countdown, upcoming / past, calendar, add form |
-| `MusicPlayer.tsx` | `/music` | Vinyl, shared controls, seek bar, playlist, add form |
-| `Letters.tsx` | `/letters` | Filters, envelopes, paper letter, read receipts, write form |
-| `Timeline.tsx` | `/timeline` | Stats, alternating milestones, scroll line, add form |
+| `Dashboard.tsx` | `/dashboard` | Invite card (until your partner joins), 3D heart, days together, anniversary ring, mood, love note, missing you, call buttons, live room cards |
+| `Chat.tsx` | `/chat` | Header with online / typing / last seen and call buttons, messages with ticks, photos, videos, camera, emoji |
+| `Gallery.tsx` | `/gallery` | Upload many photos, masonry grid, viewer, "Show Kabir", voice chat |
+| `Canvas.tsx` | `/canvas` | Toolbar (pen, neon, eraser, stickers, colours, sizes, cartoon), shared drawing area |
+| `Games.tsx` | `/games` | Game cards with Invite → waiting → playing → End game |
+| `MusicPlayer.tsx` | `/music` | Vinyl, shared controls, volume, searchable playlist, "Add your songs" help |
 | `NotFound.tsx` | anything else | Broken-heart 404 |
+
+### `front-end/src/call/` and `front-end/src/music/`
+
+| File | Job |
+| --- | --- |
+| `call/CallProvider.tsx` | Every call message travels as an encrypted room signal: ring → accept → offer → answer (or decline / busy / end). Handles calling at the same time, ring timeout (40 s), ringtone and vibration. |
+| `call/CallOverlay.tsx` | The ringing screen, the full-screen call (big partner video, small self view) and the floating mini bar. |
+| `music/MusicProvider.tsx` | Loads the song list, keeps **one** audio element for the whole app, follows the shared timeline, and connects lock-screen / headphone buttons. |
+| `music/MusicControls.tsx` | `MusicProgress`, `MusicButtons`, `MusicVolume` and `TopbarMusic` (the 🎵 pop-up). |
 
 ### `front-end/src/components/layout/`: the app frame
 
 | File | Job |
 | --- | --- |
-| `AppLayout.tsx` | Puts everything together, page transitions, scroll reset |
+| `AppLayout.tsx` | Puts everything together, 3D page turns, scroll reset |
 | `RequireRoom.tsx` | No room → `/start`. Also shows a dialog if the room can't be used anymore |
+| `AppLock.tsx` | Optional PIN lock screen + privacy blur in the background |
 | `ConnectionPill.tsx` | "Kabir is here" / "Live" / "Waiting for partner" / "Connecting…" / "Offline · changes saved" |
 | `AppSidebar.tsx` | Desktop sidebar (and the phone "More" menu) |
-| `Topbar.tsx` | Page title, connection pill, search, heart (live), avatars |
+| `Topbar.tsx` | Page title, connection pill, search, 🎵 music, 💖 missing you, avatars |
 | `MobileNav.tsx` | Floating bottom dock |
-| `CommandMenu.tsx` | `Ctrl + K` quick search |
-| `SettingsDialog.tsx` | Your name, shared date, secret code (hidden, reveal, copy), leave room |
+| `CommandMenu.tsx` | `Ctrl + K` quick search and actions |
+| `SettingsDialog.tsx` | Name, shared date, secret code, PIN lock, close room, leave on this phone |
 | `PageHeader.tsx`, `EmptyState.tsx`, `InitialAvatar.tsx`, `PageLoader.tsx` | Small shared pieces |
 
-### `front-end/src/components/fx/`, `games/`, `forms/`, `landing/`, `ui/`
+### `front-end/src/components/fx/`, `chat/`, `games/`, `landing/`, `ui/`
 
-- **fx/**: `AuroraBackground`, `FloatingParticles` (pure CSS), `SpotlightCard`, `NumberTicker`, `SlotNumber`, `WordReveal`, `Marquee`, `Meteors`, `OrbitingIcons`, `ProgressRing`, `Equalizer`, `Reveal`, `BurstLayer`.
-- **games/**: `TicTacToe` (shared, two-player), `TruthOrDare` (shared card), `MemoryMatch`, `WouldYouRather`.
-- **forms/**: `FormDialog`, `EmojiChoice`.
+- **fx/**: `Heart3D`, `AuroraBackground`, `FloatingParticles` (pure CSS), `SpotlightCard`, `NumberTicker`, `SlotNumber`, `WordReveal`, `Marquee`, `Meteors`, `OrbitingIcons`, `ProgressRing`, `Equalizer`, `Reveal`, `BurstLayer`.
+- **chat/**: `CameraCapture` (live preview, photo / video, 20 s clips, flip camera).
+- **games/**: `TicTacToe`, `TruthOrDare`, `MemoryMatch`, `WouldYouRather`, all shared and two-player.
 - **landing/**: `FeatureDemos`.
 - **ui/**: 49 shadcn/ui parts. We changed `button` (gradient and glass styles), `slider` (brand colours), `sonner` (always dark), `command` and `sidebar` (screen-reader titles), and `textarea` (lint fix).
 
@@ -312,13 +356,17 @@ flowchart TD
 
 | I want to… | Open |
 | --- | --- |
+| **Add or remove songs** | Put files in `front-end/public/music/` (then restart `npm run dev`, or redeploy) |
 | Change words, love notes or game prompts | `front-end/src/lib/content.ts` |
-| Change what a new room starts with | `front-end/src/lib/seed.ts` (`starterContent`) |
 | Change colours or the glass style | `front-end/src/index.css` |
 | Change fonts or animation speeds | `front-end/tailwind.config.ts` + `front-end/index.html` |
+| Change canvas colours or stickers | `front-end/src/pages/Canvas.tsx` (`COLORS`, `STICKERS`) |
+| Change video length or size limits | `src/components/chat/CameraCapture.tsx` (`MAX_SECONDS`) + `src/lib/media.ts` (`MAX_VIDEO_BYTES`) |
+| Make calls work on every network | Set `VITE_TURN_URL`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL` (see `.env.example`) |
+| Change how long the phone stays unlocked | `src/components/layout/AppLock.tsx` (`LOCK_AFTER_MS`) |
 | Add a new shared feature | Add a column in `src/sync/engine.ts` (`COLUMNS`), then use `useSyncedList` / `useSyncedDoc` |
 | Add a new room (page) | `src/pages/MyRoom.tsx` + a route in `src/App.tsx` + a menu item in `src/lib/nav.ts` |
-| Change rate limits or room size | `front-end/server/relay.mjs` (`LIMITS`) and `server/store.mjs` (`STORE_LIMITS`) |
+| Change rate limits or message size | `front-end/server/relay.mjs` (`LIMITS`) and `server/store.mjs` (`STORE_LIMITS`) |
 | Change security headers | `front-end/server/index.mjs` |
 | Host the relay somewhere else | Set `VITE_SYNC_URL` (see `.env.example`) |
 | Add a test | `front-end/src/test/` (unit) or `front-end/e2e/` (browser) |
@@ -330,8 +378,8 @@ flowchart TD
 | Folder | Made by | Safe to delete? |
 | --- | --- | --- |
 | `front-end/node_modules/` | `npm install` | Yes, run `npm install` again |
-| `front-end/dist/` | `npm run build` | Yes, run the build again |
-| `front-end/.usspace-data/` | The relay (encrypted rooms) | ⚠️ Deleting it removes rooms from the server. Phones still keep their copy and re-create the room on their next connection |
+| `front-end/dist/` | `npm run build` (includes a copy of the music folder) | Yes, run the build again |
+| `USSPACE_DATA_DIR` folder | The relay, **only if you set it** | ⚠️ Deleting it removes rooms from the server. Phones still keep their copy and re-create the room on their next connection |
 | `front-end/test-results/`, `playwright-report/` | `npm run test:e2e` | Yes |
 
 **Back:** [← 4 · Flowcharts](04-flowcharts.md) · **Home:** [README](../../README.md)

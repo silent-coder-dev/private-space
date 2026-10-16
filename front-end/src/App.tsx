@@ -6,7 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BurstLayer } from "@/components/fx/BurstLayer";
 import AppLayout from "@/components/layout/AppLayout";
 import { PageLoader } from "@/components/layout/PageLoader";
+import { AppLock } from "@/components/layout/AppLock";
 import { RequireRoom } from "@/components/layout/RequireRoom";
+import { CallProvider } from "@/call/CallProvider";
+import { MusicProvider } from "@/music/MusicProvider";
 import { RoomProvider } from "@/context/RoomProvider";
 import { SpaceProvider } from "@/context/SpaceProvider";
 import Index from "./pages/Index";
@@ -17,23 +20,19 @@ const pageLoaders = {
   start: () => import("./pages/Start"),
   dashboard: () => import("./pages/Dashboard"),
   chat: () => import("./pages/Chat"),
-  presence: () => import("./pages/Presence"),
+  gallery: () => import("./pages/Gallery"),
+  canvas: () => import("./pages/Canvas"),
   games: () => import("./pages/Games"),
-  planner: () => import("./pages/Planner"),
   music: () => import("./pages/MusicPlayer"),
-  letters: () => import("./pages/Letters"),
-  timeline: () => import("./pages/Timeline"),
 };
 
 const Start = lazy(pageLoaders.start);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Chat = lazy(pageLoaders.chat);
-const Presence = lazy(pageLoaders.presence);
+const Gallery = lazy(pageLoaders.gallery);
+const Canvas = lazy(pageLoaders.canvas);
 const Games = lazy(pageLoaders.games);
-const Planner = lazy(pageLoaders.planner);
 const MusicPlayer = lazy(pageLoaders.music);
-const Letters = lazy(pageLoaders.letters);
-const Timeline = lazy(pageLoaders.timeline);
 
 /** Quietly download every page once the browser is idle, so switching pages feels instant. */
 function usePreloadPages() {
@@ -53,7 +52,13 @@ function usePreloadPages() {
 const PrivateArea = () => (
   <RequireRoom>
     <SpaceProvider>
-      <AppLayout />
+      <AppLock>
+        <CallProvider>
+          <MusicProvider>
+            <AppLayout />
+          </MusicProvider>
+        </CallProvider>
+      </AppLock>
     </SpaceProvider>
   </RequireRoom>
 );
@@ -80,12 +85,10 @@ const App = () => {
               <Route element={<PrivateArea />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/chat" element={<Chat />} />
-                <Route path="/presence" element={<Presence />} />
+                <Route path="/gallery" element={<Gallery />} />
+                <Route path="/canvas" element={<Canvas />} />
                 <Route path="/games" element={<Games />} />
-                <Route path="/planner" element={<Planner />} />
                 <Route path="/music" element={<MusicPlayer />} />
-                <Route path="/letters" element={<Letters />} />
-                <Route path="/timeline" element={<Timeline />} />
               </Route>
               <Route path="/home" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
