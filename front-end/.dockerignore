@@ -1,0 +1,8 @@
+node_modules
+dist
+.usspace-data
+test-results
+playwright-report
+doc
+e2e
+.git

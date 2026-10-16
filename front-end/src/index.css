@@ -1,0 +1,299 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ */
+/*  Design tokens                                                      */
+/* ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    --background: 236 36% 6%;
+    --foreground: 240 40% 98%;
+
+    --card: 236 30% 12%;
+    --card-foreground: 240 40% 98%;
+
+    --popover: 236 32% 10%;
+    --popover-foreground: 240 40% 98%;
+
+    --primary: 349 100% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 67% 59%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 236 22% 18%;
+    --muted-foreground: 240 16% 74%;
+
+    --accent: 236 24% 18%;
+    --accent-foreground: 240 40% 98%;
+
+    --blush: 330 100% 76%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 69% 52%;
+    --gold: 42 100% 66%;
+
+    --border: 236 22% 20%;
+    --input: 236 22% 22%;
+    --ring: 349 100% 65%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 236 34% 8%;
+    --sidebar-foreground: 240 40% 98%;
+    --sidebar-primary: 349 100% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 236 24% 15%;
+    --sidebar-accent-foreground: 240 40% 98%;
+    --sidebar-border: 236 22% 16%;
+    --sidebar-ring: 349 100% 65%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(349 100% 65%), hsl(300 80% 62%) 50%, hsl(270 67% 59%));
+    --gradient-soft: linear-gradient(135deg, hsl(349 100% 65% / 0.18), hsl(270 67% 59% / 0.18));
+
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading tracking-tight;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.35);
+    color: hsl(var(--foreground));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reusable effects                                                   */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  .gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+
+  .gradient-soft {
+    background-image: var(--gradient-soft);
+  }
+
+  .text-gradient {
+    background-image: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-gradient-animated {
+    background-image: linear-gradient(
+      90deg,
+      hsl(349 100% 68%),
+      hsl(320 90% 70%),
+      hsl(270 80% 70%),
+      hsl(42 100% 70%),
+      hsl(349 100% 68%)
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-x 8s ease infinite;
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 24px hsl(349 100% 65% / 0.3);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 36px hsl(var(--blush) / 0.35);
+  }
+
+  .glow-text {
+    text-shadow: 0 0 24px hsl(349 100% 65% / 0.45);
+  }
+
+  /* Frosted glass surface with a soft top highlight */
+  .glass-card {
+    @apply rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-xl;
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.05),
+      0 10px 30px -12px hsl(236 60% 2% / 0.6);
+  }
+
+  .glass {
+    @apply border border-white/[0.07] bg-card/50 backdrop-blur-xl;
+  }
+
+  /* Subtle background patterns */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(0 0% 100% / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(0 0% 100% / 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(hsl(0 0% 100% / 0.09) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .mask-radial {
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 70%);
+    mask-image: radial-gradient(ellipse at center, #000 20%, transparent 70%);
+  }
+
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent);
+    mask-image: linear-gradient(to bottom, #000 60%, transparent);
+  }
+
+  /* Light sweep that runs across buttons and badges */
+  .shine {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.35), transparent);
+    animation: shine 3.2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Lined writing paper for letters */
+  .paper {
+    background-color: hsl(36 60% 96%);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      hsl(349 60% 80% / 0.45) 31px,
+      hsl(349 60% 80% / 0.45) 32px
+    );
+    color: hsl(236 30% 18%);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* A light that travels around the edge of a card ("border beam") */
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes beam-spin {
+  to {
+    --beam-angle: 360deg;
+  }
+}
+
+.border-beam {
+  position: relative;
+  isolation: isolate;
+}
+.border-beam::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0deg,
+    transparent 250deg,
+    hsl(349 100% 65%) 300deg,
+    hsl(270 67% 65%) 340deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: beam-spin 5s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(236 20% 24%) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(236 20% 22%);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(349 100% 65%);
+  background-clip: padding-box;
+}
+
+/* Respect people who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

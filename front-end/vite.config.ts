@@ -1,0 +1,51 @@
+import { defineConfig, type Plugin } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import path from "path";
+import { createRelay } from "./server/relay.mjs";
+
+/** Runs the real-time room relay on the same port as the dev/preview server (at /ws). */
+function roomRelay(): Plugin {
+  const attach = (httpServer: import("node:http").Server | null | undefined) => {
+    if (!httpServer) return;
+    const relay = createRelay({ dataDir: path.resolve(__dirname, ".usspace-data") });
+    httpServer.on("upgrade", (req, socket, head) => relay.handleUpgrade(req, socket, head));
+    httpServer.on("close", () => relay.close());
+  };
+  return {
+    name: "usspace-room-relay",
+    configureServer: (server) => attach(server.httpServer as import("node:http").Server | null),
+    configurePreviewServer: (server) => attach(server.httpServer as import("node:http").Server | null),
+  };
+}
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  server: {
+    host: "::",
+    port: 8080,
+    hmr: {
+      overlay: false,
+    },
+  },
+  preview: {
+    port: 8080,
+  },
+  plugins: [react(), roomRelay()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          motion: ["framer-motion"],
+          crypto: ["@noble/ciphers/chacha", "@noble/hashes/hkdf", "@noble/hashes/hmac", "@noble/hashes/sha2"],
+        },
+      },
+    },
+  },
+});
