@@ -13,7 +13,7 @@ This is the **design guide** for UsSpace. It explains the look and feel, and exa
 - [3.7 Motion and 3D](#37-motion-and-3d)
 - [3.8 Building blocks (components)](#38-building-blocks-components)
 - [3.9 Screen by screen](#39-screen-by-screen)
-- [3.10 Template inspiration (60+ patterns)](#310-template-inspiration-60-patterns)
+- [3.10 Template inspiration (75 patterns)](#310-template-inspiration-75-patterns)
 - [3.11 Layout and screen sizes](#311-layout-and-screen-sizes)
 - [3.12 Accessibility](#312-accessibility)
 - [3.13 Words and tone](#313-words-and-tone)
@@ -159,8 +159,10 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
 
 - **Icons:** [lucide-react](https://lucide.dev), thin 2 px line icons, sized 16–24 px.
 - Each room has one icon: Home `LayoutDashboard` · Chat `MessageCircleHeart` · Gallery `Image` · Canvas `Palette` · Games `Gamepad2` · Music `Music`.
-- Call icons: `Phone`, `Video`, `PhoneOff`, `Mic` / `MicOff`, `Camera` / `CameraOff`, `SwitchCamera`, `Minimize2`.
-- **Emoji** add warmth: moods (🥰 😊 🤗 😴 🥺 🔥 😌 🤒), canvas stickers (❤️ 💖 😘 🥰 😂 🌹 ⭐ 🌙 ☀️ 🐱 🐶 🧸 🎈 🍕 👑 💍) and game pieces (❤️ vs 💜).
+- Call icons: `Phone`, `Video`, `PhoneOff`, `Mic` / `MicOff`, `Camera` / `CameraOff`, `SwitchCamera`, `Minimize2`, `ShieldCheck` (encrypted), `Volume2` (tap to hear).
+- Other new icons: `Hand` (canvas scroll tool), `ArrowDown` (latest messages, more space), `Bell` (notifications).
+- **App icon:** the gradient heart on the night background, as PNG icons for phones (`icon-192.png`, `icon-512.png`, a "maskable" one for Android, and `apple-touch-icon.png`).
+- **Emoji** add warmth: moods (🥰 😊 🤗 😴 🥺 🔥 😌 🤒), canvas stickers (❤️ 💖 😘 🥰 😂 🌹 ⭐ 🌙 ☀️ 🐱 🐶 🧸 🎈 🍕 👑 💍) and game pieces (❤️ / 💖 vs 💜), Rock Paper Scissors (🪨 📄 ✂️) and game cards (❤️ 🎲 🧠 🤔 💘 🔴 ✂️ 🙋).
 - **Logo:** a white heart inside a rounded square with the brand gradient ([`public/favicon.svg`](../public/favicon.svg)).
 
 ---
@@ -184,7 +186,9 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
 | **3D page turn** | Each page enters tipped back (`rotateX 7°`) and stands up | Every page |
 | **3D tilt cards** | Cards follow the mouse up to 9°, with a light spot | Feature, room and game cards, gallery photos |
 | **3D record** | The vinyl tips back (`rotateX 8° → 18°` while playing) and spins | Music |
-| **3D flip cards** | Cards turn over (`rotateY 180°`) | Truth or Dare, Memory Match |
+| **3D flip cards** | Cards turn over (`rotateY 180°`) | Truth or Dare, Memory Match, Rock Paper Scissors |
+| **Falling hearts** | Each Connect Four heart drops into its slot with a spring | Connect Four |
+| **Tipping cards** | Question cards swing in (`rotateX` / `rotateY`) | Quiz, Never Have I Ever, Would You Rather |
 | **Drifting hearts** | Tiny hearts float slowly across the background | Behind the whole app |
 
 ### Timing table
@@ -238,9 +242,9 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
 | Part | Where |
 | --- | --- |
 | `CameraCapture`: live camera, photo / video switch, record ring, flip camera | [`components/chat/`](../src/components/chat) |
-| `CallOverlay`: ringing screen, full-screen call, floating call bar | [`call/`](../src/call) |
+| `CallOverlay`: ringing screen, full-screen call, floating call bar, "Connected through UsSpace" chip, "Tap to hear" button | [`call/`](../src/call) |
 | `MusicProgress`, `MusicButtons`, `MusicVolume`, `TopbarMusic` | [`music/MusicControls.tsx`](../src/music/MusicControls.tsx) |
-| `TicTacToe`, `TruthOrDare`, `MemoryMatch`, `WouldYouRather` | [`components/games/`](../src/components/games) |
+| `TicTacToe`, `ConnectFour`, `CoupleQuiz`, `RockPaperScissors`, `NeverHaveIEver`, `TruthOrDare`, `MemoryMatch`, `WouldYouRather` | [`components/games/`](../src/components/games) |
 
 ### Base UI ([`components/ui/`](../src/components/ui))
 
@@ -263,15 +267,17 @@ Real screenshots of every screen are in [`screenshots/`](screenshots) (desktop a
 | **Start · Choose** | Big heading "Your private room *for two*" (moving gradient), two tilting cards (**Create a room** ✨ / **Join a room** 🔑) and a green security strip. |
 | **Start · Secret code** | A card with a travelling border beam, the big gradient code, **Copy · Share · QR**, a pulsing "Waiting for your partner…", then "💞 Kabir joined!". |
 | **Home** | The 3D heart over the days-together number, the mood picker, the love note in handwriting, a big **I'm missing you** button, video / voice call buttons and live room cards. |
-| **Chat** | Gradient bubbles for me, glass bubbles for my partner. Photos and videos sit inside bubbles. A camera sheet with a round record button and a red progress ring. Call buttons in the header. |
-| **Call** | Full screen. The partner's video fills the screen, and my own video is a small rounded tile in the corner. Round buttons at the bottom: mute, camera, switch, minimise, and a red end button. Incoming calls show ripple rings and a green **Accept** button. Minimised, it becomes a small glass pill with the timer. |
+| **Chat** | Gradient bubbles for me, glass bubbles for my partner. Photos and videos sit inside bubbles. A camera sheet with a round record button and a timer (up to 2:00). Call buttons in the header. When you scroll up, a glass "↓ Latest messages" pill floats above the composer. |
+| **Call** | Full screen. In a video call the partner's video fills the screen and my own video is a small rounded tile in the corner. In a voice call the avatar, name and timer sit in the middle (like a phone call) with a small "🛡️ End-to-end encrypted" line. Round buttons at the bottom: mute, camera, switch, minimise, and a red end button. Incoming calls show ripple rings and a green **Accept** button. On the backup path a glass chip says "Connected through UsSpace · encrypted". Minimised, it becomes a small glass pill with the timer. |
 | **Gallery** | A masonry grid (2 → 4 columns) of tilting photos. Full-screen viewer with arrows and swipe, **Show Kabir**, save, delete, and a **Voice chat** button in the header. |
-| **Canvas** | A floating glass toolbar (pen, neon, eraser, stickers, colours, sizes, cartoon switch), with undo / save / clear on top, and a cream paper sheet underneath. |
-| **Games** | Four tilting game cards with an **Invite** button. Inviting shows a spinner, "Waiting for Kabir to join…". Your partner sees "Riya invites you to play…" with **Join game**. |
+| **Canvas** | A glass toolbar (pen, neon, eraser, stickers, ✋ scroll, colours, sizes, photo) that **stays at the top while you scroll**, undo / save / clear on top, and a cream paper sheet underneath that **grows as you draw**. A faint violet line marks every screen-height on a long board, and a "↓ More space" button sits under it. |
+| **Games** | Eight tilting game cards (4 per row on a laptop) with an **Invite** button. Inviting shows a spinner, "Waiting for Kabir to join…". Your partner sees "Riya invites you to play…" with **Join game**. |
+| **Connect Four** | A gradient board (rose → violet) with 7 × 6 round slots; hearts fall into place, the four winning slots glow gold, and the scoreboard rings the player whose turn it is. |
+| **Quiz / Never Have I Ever / RPS** | Big glass question cards that swing in, answer buttons that turn gradient when picked, green / red rings when the answer is revealed, and face-down cards that flip for Rock Paper Scissors. |
 | **Music** | A tipped 3D vinyl record with a heart label and a pink glow, the song title, "Listening together", a progress bar, a gradient play button, volume, and a searchable playlist with a sliding highlight. |
 | **🎵 top-bar pop-up** | Now playing, the progress bar, all controls and volume in a small glass pop-up on every page. The icon becomes bouncing bars while music plays. |
 | **PIN lock** | A glass card with a glowing gradient lock tile, "UsSpace is locked" and a PIN field. The card shakes on a wrong PIN. |
-| **Settings** | Name, together-since date, secret code (hidden until you tap), PIN lock switch, and a red **Close room & delete everything** button. |
+| **Settings** | Name, together-since date, secret code (hidden until you tap), notifications (Turn on / off), PIN lock, and a red **Close room & delete everything** button. |
 
 ### Connection pill colours
 
@@ -289,7 +295,7 @@ Real screenshots of every screen are in [`screenshots/`](screenshots) (desktop a
 
 ---
 
-## 3.10 Template inspiration (60+ patterns)
+## 3.10 Template inspiration (75 patterns)
 
 We studied many popular free UI libraries and templates, including **Aceternity UI**, **Magic UI**, **shadcn/ui blocks**, **Cruip** and **Velora UI**, and the design language of apps like **Linear, Vercel, Stripe, Apple (FaceTime, Photos, Music), Spotify, iMessage, WhatsApp, Pinterest and Excalidraw**. We did **not** copy any template's code. We re-built each idea by hand to fit UsSpace's romantic style.
 
@@ -323,7 +329,7 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | 26 | Scroll reveal sections | Cruip templates | Landing |
 | 27 | Layered 3D object | CSS 3D demos (stacked layers) | 3D heart |
 | 28 | Progress ring | Apple Fitness rings | Anniversary ring |
-| 29 | 3D flip card | Card-flip demos | Truth or Dare, Memory Match |
+| 29 | 3D flip card | Card-flip demos | Truth or Dare, Memory Match, Rock Paper Scissors |
 | 30 | Chat bubbles + typing dots | iMessage, WhatsApp | Chat |
 | 31 | Quick reactions bar | iMessage tapbacks, Slack | Chat |
 | 32 | Emoji picker popover | Slack, Discord | Chat |
@@ -341,7 +347,7 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | 44 | Colour swatches + custom picker | Procreate, Figma | Canvas |
 | 45 | Neon brush | Glow-pen drawing apps | Canvas |
 | 46 | Sticker stamping | Instagram Stories stickers | Canvas |
-| 47 | Cartoon photo filter | Prisma / ToonMe style apps | Canvas |
+| 47 | Endless canvas + sticky toolbar | Excalidraw, Miro, Figma | Canvas that grows |
 | 48 | Game invite card | Xbox / Discord activity invites | Games |
 | 49 | Vinyl record player | Dribbble music concepts | Music |
 | 50 | Equalizer "now playing" | Spotify | Playlist, top bar |
@@ -365,6 +371,11 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | 68 | Danger zone | GitHub settings | Close room |
 | 69 | Pulsing heart loader | Brand loaders | Page loading |
 | 70 | Playful 404 | Many SaaS templates | Not-found page |
+| 71 | Connect Four board | The classic toy, Game Pigeon | Connect Four |
+| 72 | Quiz answer tiles | Kahoot, Duolingo | How Well Do You Know Me? |
+| 73 | "Jump to latest" pill | WhatsApp, Slack | Chat |
+| 74 | App icon + install | Phone home screens (PWA) | Add to Home Screen |
+| 75 | "Connection" chip on a call | Google Meet, FaceTime | Backup call path |
 
 ---
 
@@ -374,13 +385,13 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | --- | --- | --- |
 | Phone | < 768 px | Top bar + **floating bottom dock** (Home, Chat, Gallery, Games, More). Single column. |
 | Tablet | ≥ 768 px (`md`) | **Sidebar** appears (groups: Us · Create · Play). Cards become 2 columns. |
-| Laptop | ≥ 1024 px (`lg`) | Up to 4 columns in the gallery, playlist beside the player. |
+| Laptop | ≥ 1024 px (`lg`) | Up to 4 columns in the gallery and the games list, playlist beside the player. |
 | Wide | ≥ 1280 px | Content is centred and capped at 1152 px. |
 
 - On phones narrower than 440 px, the top bar shows only the heart logo (no "UsSpace" word), so 🔍, 🎵, 💖 and the profile button always fit.
 - The sidebar can collapse to icons (`Ctrl + B` or the panel button).
 - The chat and the call fill the screen. Other pages scroll inside the main area.
-- The canvas keeps the same shape on every screen (coordinates 0–1000), so drawings match on both phones.
+- The canvas is measured in units (always 1000 wide), so drawings match on every screen size, and its height grows with the drawing (750 → 5000 units).
 - Safe areas on phones with notches are respected (`env(safe-area-inset-bottom)`). The floating call pill sits above the dock.
 
 ---
@@ -421,6 +432,9 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | Slow down or speed up loops | `keyframes` / `animation` in `tailwind.config.ts` |
 | Change the 3D heart | `size` / `layers` in `src/components/fx/Heart3D.tsx` |
 | Change canvas colours or stickers | `COLORS` / `STICKERS` in `src/pages/Canvas.tsx` |
+| Change how tall the canvas can grow | `MIN_HEIGHT` / `ROOM_BELOW` / `MAX_HEIGHT` in `src/pages/Canvas.tsx` |
+| Change game questions | `NEVER_HAVE_I_EVER` / `QUIZ_QUESTIONS` / `TRUTHS` / `DARES` / `WOULD_YOU_RATHER` in `src/lib/content.ts` |
+| Change the app icon | `public/favicon.svg` + the PNG icons in `public/` |
 | Change words, love notes or game prompts | `src/lib/content.ts` |
 | Change the sidebar / dock items | `src/lib/nav.ts` |
 

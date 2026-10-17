@@ -30,7 +30,7 @@ import { Reveal } from "@/components/fx/Reveal";
 import { SpotlightCard } from "@/components/fx/SpotlightCard";
 import { WordReveal } from "@/components/fx/WordReveal";
 import { CallDemo, ChatDemo, CloseRoomDemo, GalleryCanvasDemo, GameDemo, HeartDemo, MusicDemo } from "@/components/landing/FeatureDemos";
-import { DARES, FEATURE_MARQUEE, LOVE_NOTES, TRUTHS, WOULD_YOU_RATHER } from "@/lib/content";
+import { DARES, FEATURE_MARQUEE, GAME_NAMES, LOVE_NOTES, NEVER_HAVE_I_EVER, QUIZ_QUESTIONS, TRUTHS, WOULD_YOU_RATHER } from "@/lib/content";
 import { NAV_ITEMS } from "@/lib/nav";
 import { EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -46,12 +46,12 @@ const FEATURES: { icon: LucideIcon; title: string; text: string; demo: ReactNode
   },
   { icon: Video, title: "Voice & video calls", text: "Call each other right from your room — phone to phone, no extra app.", demo: <CallDemo /> },
   { icon: Trash2, title: "Close room = gone", text: "One tap deletes every message, photo and drawing — from the server and both phones.", demo: <CloseRoomDemo /> },
-  { icon: Gamepad2, title: "Games for two", text: "Invite your partner — the game starts when they join.", demo: <GameDemo /> },
+  { icon: Gamepad2, title: "8 games for two", text: "Connect Four, a couple quiz, Truth or Dare and more. Invite your partner — the game starts when they join.", demo: <GameDemo /> },
   { icon: Music, title: "Your music, in sync", text: "Play your own songs on both phones at the same second.", demo: <MusicDemo /> },
   {
     icon: Palette,
     title: "Gallery + canvas",
-    text: "Share as many photos as you like, look at them on a voice chat, and draw or make cartoons together.",
+    text: "Share as many photos as you like, look at them on a voice chat, and draw together on a board that grows as you go.",
     demo: <GalleryCanvasDemo />,
     className: "md:col-span-2",
   },
@@ -110,7 +110,7 @@ const PrimaryCta = ({ children, className }: { children: ReactNode; className?: 
 
 const Index = () => {
   const heroRef = useRef<HTMLElement>(null);
-  const promptCount = TRUTHS.length + DARES.length + WOULD_YOU_RATHER.length;
+  const promptCount = TRUTHS.length + DARES.length + WOULD_YOU_RATHER.length + NEVER_HAVE_I_EVER.length + QUIZ_QUESTIONS.length;
 
   const moveSpotlight = (e: React.PointerEvent<HTMLElement>) => {
     const el = heroRef.current;
@@ -251,7 +251,7 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {[
               { value: NAV_ITEMS.length, label: "cosy spaces" },
-              { value: 4, label: "games to play" },
+              { value: Object.keys(GAME_NAMES).length, label: "games to play" },
               { value: promptCount, label: "conversation prompts" },
               { value: LOVE_NOTES.length, label: "daily love notes" },
             ].map((stat, i) => (

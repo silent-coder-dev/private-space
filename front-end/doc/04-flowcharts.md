@@ -7,17 +7,18 @@ The diagrams use **Mermaid**, which GitHub and VS Code (with a Mermaid preview e
 
 | Getting in | Every room | Safety & running |
 | --- | --- | --- |
-| [4.1 The big picture](#41-the-big-picture-user-journey) | [4.12 Chat: typing, sending and ticks](#412-chat-typing-sending-and-ticks) | [4.22 PIN lock and privacy blur](#422-pin-lock-and-privacy-blur) |
-| [4.2 Create a room](#42-create-a-room) | [4.13 Camera: photo or video](#413-camera-photo-or-video) | [4.23 Close room = delete everything](#423-close-room--delete-everything) |
-| [4.3 Join a room](#43-join-a-room) | [4.14 I'm missing you](#414-im-missing-you) | [4.24 Leave on this phone only](#424-leave-on-this-phone-only) |
-| [4.4 Four keys from one code](#44-four-keys-from-one-secret-code) | [4.15 Voice and video call](#415-voice-and-video-call) | [4.25 Quick search (Ctrl + K)](#425-quick-search-ctrl--k) |
-| [4.5 How one message travels](#45-how-one-message-travels) | [4.16 Call screen states](#416-call-screen-states) | [4.26 Phone navigation](#426-phone-navigation) |
-| [4.6 Server checks on join](#46-what-the-server-checks-when-someone-joins) | [4.17 Gallery: share, show, talk](#417-gallery-share-show-and-talk) | [4.27 Running it for real](#427-running-it-for-real-deployment) |
-| [4.7 Offline and catch-up](#47-offline-reconnect-and-catch-up) | [4.18 Canvas: draw and cartoon](#418-canvas-draw-stickers-and-cartoons) | |
-| [4.8 How the app starts](#48-how-the-app-starts) | [4.19 Game invites](#419-game-invites) | |
-| [4.9 Page map](#49-page-map-and-the-room-guard) | [4.20 Playing the games](#420-playing-the-games) | |
-| [4.10 Component tree](#410-screen-layout-component-tree) | [4.21 Music: one player, in sync](#421-music-one-player-in-sync) | |
-| [4.11 Newest wins + pop-ups](#411-shared-data-newest-wins-and-pop-ups) | | |
+| [4.1 The big picture](#41-the-big-picture-user-journey) | [4.12 Chat: typing, sending and ticks](#412-chat-typing-sending-and-ticks) | [4.24 PIN lock and privacy blur](#424-pin-lock-and-privacy-blur) |
+| [4.2 Create a room](#42-create-a-room) | [4.13 Camera: photo or video](#413-camera-photo-or-video) | [4.25 Close room = delete everything](#425-close-room--delete-everything) |
+| [4.3 Join a room](#43-join-a-room) | [4.14 I'm missing you](#414-im-missing-you) | [4.26 Leave on this phone only](#426-leave-on-this-phone-only) |
+| [4.4 Four keys from one code](#44-four-keys-from-one-secret-code) | [4.15 A call, step by step](#415-a-call-step-by-step) | [4.27 Notifications](#427-notifications) |
+| [4.5 How one message travels](#45-how-one-message-travels) | [4.16 Direct, repaired or through the server](#416-direct-repaired-or-through-the-server) | [4.28 Quick search (Ctrl + K)](#428-quick-search-ctrl--k) |
+| [4.6 Server checks on join](#46-what-the-server-checks-when-someone-joins) | [4.17 Call screen states](#417-call-screen-states) | [4.29 Phone navigation](#429-phone-navigation) |
+| [4.7 Offline, restarts and catch-up](#47-offline-server-restarts-and-catch-up) | [4.18 Gallery: share, show, talk](#418-gallery-share-show-and-talk) | [4.30 Running it for real](#430-running-it-for-real-deployment) |
+| [4.8 How the app starts](#48-how-the-app-starts) | [4.19 Canvas that grows](#419-canvas-a-board-that-grows) | |
+| [4.9 Page map](#49-page-map-and-the-room-guard) | [4.20 Game invites](#420-game-invites) | |
+| [4.10 Component tree](#410-screen-layout-component-tree) | [4.21 The 8 games](#421-the-8-games) | |
+| [4.11 Newest wins + pop-ups](#411-shared-data-newest-wins-and-pop-ups) | [4.22 Music: one player, in sync](#422-music-one-player-in-sync) | |
+| | [4.23 The server forgets](#423-the-server-forgets-what-both-phones-have) | |
 
 ---
 
@@ -36,10 +37,12 @@ flowchart TD
     Code -->|"Enter now"| Home
     Joined --> Home
     Choose -->|"Join"| Join["Code + name"] --> Home
-    Home --> Rooms["💬 Chat + 📞 calls · 🖼️ Gallery · 🎨 Canvas<br/>🎮 Games · 🎵 Music · 💖 Missing you"]
+    Home --> Rooms["💬 Chat + 📞 calls · 🖼️ Gallery · 🎨 Canvas<br/>🎮 8 games · 🎵 Music · 💖 Missing you"]
     Rooms <-->|"⚡ live, encrypted"| Partner["📱 Partner's phone"]
     Rooms -->|"Close room"| Gone["🧨 Everything deleted<br/>server + both phones"]
 ```
+
+Many couples use the same website at the same time: each couple has its own room and code.
 
 ---
 
@@ -55,9 +58,9 @@ sequenceDiagram
     App->>App: Work out room id, auth key, encryption key from the code
     App->>App: Open this room's storage (IndexedDB)
     App->>Relay: create (room id, hash of auth key, device id)
-    Relay->>Relay: New and not closed? Keep it in memory, Riya is member 1
-    Relay-->>App: welcome (members 1)
-    App->>App: Save the session, share Riya's name and the date (encrypted)
+    Relay->>Relay: Not closed and not taken? Keep it in memory with a new epoch
+    Relay-->>App: welcome (members 1, epoch)
+    App->>App: Save the session + epoch, share Riya's name and the date (encrypted)
     App-->>Riya: Show the secret code + Copy, Share, QR
     Note over App,Relay: The code itself never leaves Riya's phone
 ```
@@ -77,7 +80,7 @@ sequenceDiagram
     App->>App: Work out the same room id and keys
     App->>Relay: join (room id, auth key, device id)
     Relay->>Relay: Checks (see 4.6)
-    Relay-->>App: welcome (members 2) + everything shared so far
+    Relay-->>App: welcome (members 2, epoch) + everything waiting so far
     App->>App: Decrypt, save, share Kabir's name
     Relay-->>Riya: presence (members 2, partner online)
     Riya->>Riya: 💞 Kabir joined! (heart burst + pop-up)
@@ -106,7 +109,7 @@ sequenceDiagram
     participant A as Riya's phone
     participant S as Relay server
     participant B as Kabir's phone
-    A->>A: Show the message now (🕓 sending), save it in the outbox
+    A->>A: Show the message now (🕓 sending), save it + its outbox entry in one step
     A->>A: Encrypt the message (text, photo or video, time, sender)
     A->>S: put (anonymous label, locked box)
     S->>S: Keep the box in memory as event number N
@@ -114,7 +117,10 @@ sequenceDiagram
     A->>A: Remove from outbox (✓ sent)
     S-->>B: event N (locked box)
     B->>B: Decrypt and check. "me" becomes "partner"
-    B->>B: Show the message live, save it in IndexedDB
+    B->>B: Show it live, save it + "caught up to N" in one step
+    B->>S: seen N (only after it's really saved)
+    A->>S: seen N
+    S->>S: Both phones have N → forget it (see 4.23)
     B->>S: put read-receipt (encrypted)
     S-->>A: event (read-receipt)
     A->>A: ✓✓ seen
@@ -128,18 +134,21 @@ sequenceDiagram
 flowchart TD
     J["join request"] --> V{"Valid format?"}
     V -->|"No"| E1["bad_request"]
-    V -->|"Yes"| C0{"Room was closed?"}
+    V -->|"Yes"| C0{"Room closed?<br/>(memory, then database)"}
     C0 -->|"Yes"| EC["closed<br/>(phone wipes its copy)"]
     C0 -->|"No"| T{"This IP has<br/>tries left?"}
     T -->|"No"| E2["rate_limited"]
-    T -->|"Yes"| F{"Room exists?"}
-    F -->|"No"| X1["use 1 try → not_found"]
-    F -->|"Yes"| L{"Room locked after<br/>10 wrong tries?"}
+    T -->|"Yes"| F{"Room in memory?"}
+    F -->|"No"| DBR{"Room record in<br/>the database?"}
+    DBR -->|"Yes"| RES["Bring it back: same 2 devices,<br/>new epoch, no messages"]
+    DBR -->|"No"| X1["use 1 try → not_found<br/>(a saved phone re-creates it)"]
+    F -->|"Yes"| L
+    RES --> L{"Room locked after<br/>10 wrong tries?"}
     L -->|"Yes"| E3["rate_limited"]
     L -->|"No"| K{"hash(auth key)<br/>matches?"}
     K -->|"No"| X2["use 1 try, count a failure → denied"]
     K -->|"Yes"| M{"Device already a member?"}
-    M -->|"Yes"| OK["welcome + catch-up<br/>(no try used)"]
+    M -->|"Yes"| OK["welcome + catch-up<br/>(everything if the epoch changed)"]
     M -->|"No"| C{"Fewer than 2 members?"}
     C -->|"Yes"| ADD["add member 2 → welcome<br/>(room is now locked)"]
     C -->|"No"| FULL["full"]
@@ -147,22 +156,23 @@ flowchart TD
 
 ---
 
-## 4.7 Offline, reconnect and catch-up
+## 4.7 Offline, server restarts and catch-up
 
 ```mermaid
 flowchart TD
-    A["Connection drops<br/>(train, Wi-Fi, phone asleep)"] --> B["Pill: Offline · changes saved"]
+    A["Connection drops<br/>(train, Wi-Fi, phone asleep, server restart)"] --> B["Pill: Offline · changes saved"]
     B --> C["You keep using the app<br/>changes wait in the outbox (saved)"]
-    C --> D{"Back online,<br/>tab visible,<br/>or retry timer"}
+    C --> D{"Back online,<br/>app visible,<br/>or retry timer"}
     D --> E["Reconnect with backoff<br/>0.5s → 1s → 2s … max 15s"]
-    E --> F["join (since = last event number)"]
+    E --> F["join (since = last event, epoch I know)"]
     F --> G{"What does the server say?"}
-    G -->|"Room found"| H["Receive everything after that number"]
-    G -->|"Room lost (server restarted)"| I["Re-create the room<br/>with the same code"]
+    G -->|"Same epoch"| H["Receive everything after that number"]
+    G -->|"Different epoch<br/>(server lost the room)"| I["Receive everything it has<br/>+ upload everything I have"]
+    G -->|"Room not found<br/>(no database)"| R["Re-create the room<br/>with the same code, upload my copy"]
     G -->|"Room closed"| W["Wipe this phone's copy<br/>→ back to the start"]
-    I --> J["Re-upload this phone's whole copy"]
-    H --> K["Send the outbox"]
-    J --> K
+    H --> K["Send the outbox<br/>(20 at a time, retry if busy)"]
+    I --> K
+    R --> K
     K --> L["Pill: Live / Kabir is here"]
 ```
 
@@ -172,7 +182,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["index.html"] --> B["main.tsx"]
+    A["index.html<br/>(manifest + app icons)"] --> B["main.tsx"]
+    B --> SW["Register the service worker<br/>(notifications only)"]
     B --> C["App.tsx"]
     C --> D["MotionConfig + Tooltip + Toaster"]
     D --> E["BrowserRouter"]
@@ -217,17 +228,17 @@ flowchart LR
 flowchart TD
     RR["RequireRoom<br/>(+ room problem dialog)"] --> SP["SpaceProvider<br/>me · partner · couple"]
     SP --> LK["AppLock<br/>PIN screen + privacy blur"]
-    LK --> CP["CallProvider<br/>ringing · WebRTC"]
+    LK --> CP["CallProvider<br/>ringing · WebRTC · backup path"]
     CP --> MP["MusicProvider<br/>one audio player for the whole app"]
     MP --> AL["AppLayout"]
     AL --> AB["AuroraBackground + particles"]
     AL --> AS["AppSidebar"]
-    AL --> TB["Topbar<br/>ConnectionPill · search · 🎵 · 💖 · calls"]
+    AL --> TB["Topbar<br/>ConnectionPill · search · 🎵 · 💖"]
     AL --> MAIN["main id=main"]
     MAIN --> PAGE["Current page (3D page turn)"]
     AL --> MN["MobileNav"]
     AL --> CM["CommandMenu"]
-    AL --> SD["SettingsDialog<br/>name · since · code · PIN · close room"]
+    AL --> SD["SettingsDialog<br/>name · since · code · notifications · PIN · close room"]
     AL --> CO["CallOverlay<br/>ringing · full screen · mini bar"]
 ```
 
@@ -238,18 +249,16 @@ flowchart TD
 ```mermaid
 flowchart TD
     P["A put arrives<br/>(column, id, data, time, by)"] --> W{"From my own device?"}
-    W -->|"No"| F["Swap me ↔ partner<br/>(messages, photos, strokes, game, …)"]
+    W -->|"No"| F["Swap me ↔ partner<br/>(messages, strokes, games, …)"]
     W -->|"Yes"| N
     F --> N{"Newer than what<br/>I have for this item?"}
     N -->|"No (older or same)"| I["Ignore"]
     N -->|"Yes"| A["Apply: add, replace or delete<br/>(remember deletes)"]
     A --> U["Tell the pages to redraw"]
     A --> S["Save the item + 'caught up to N'<br/>in ONE IndexedDB step"]
-    A --> T{"From my partner,<br/>while live?"}
-    T -->|"New message, not on Chat"| T1["💬 Kabir · Reply"]
-    T -->|"New photo, not on Gallery"| T2["🖼️ Added a photo · See"]
-    T -->|"Game invite"| T3["🎮 Invites you to play · Join game"]
-    T -->|"Show a photo, not on Gallery"| T4["👀 Wants to show you a photo · Look"]
+    A --> T{"From my partner, while live?"}
+    T -->|"App on screen"| T1["In-app pop-up:<br/>💬 Reply · 🖼️ See · 🎮 Join game · 👀 Look"]
+    T -->|"App in the background"| T2["🔔 Phone notification<br/>(who, never what)"]
 ```
 
 ---
@@ -258,6 +267,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
+    O["Open the chat"] --> O2["Jump to the newest message<br/>and stay there while photos load"]
     A["You type"] --> B{"More than 2.5 s<br/>since the last signal?"}
     B -->|"Yes"| C["Send 'typing' signal<br/>(live, not stored)"]
     C --> D["Partner sees typing… for 4 s"]
@@ -268,11 +278,12 @@ flowchart TD
     H -->|"Yes"| I["They save 'read up to time T'"]
     I --> J["Your message · ✓✓ Seen"]
     K["📎 Pick a photo"] --> L["Shrink to a 1280 px JPEG"] --> F
-    K2["📎 Pick a video"] --> L2{"Max 2.5 MB?"}
+    K2["📎 Pick a video"] --> L2{"Max 8 MB?"}
     L2 -->|"Yes"| F
-    L2 -->|"No"| L3["'Record a shorter clip'"]
+    L2 -->|"No"| L3["'Record up to 2 minutes<br/>with the camera button'"]
     CAM["📷 Camera (see 4.13)"] --> F
     M["Double-click a bubble"] --> N["Toggle ❤️ (synced)"]
+    UP["Scroll up to read"] --> UP2["'↓ Latest messages' button"]
 ```
 
 ---
@@ -286,10 +297,8 @@ flowchart TD
     B -->|"Allowed"| C["Live preview<br/>(front camera, flip button)"]
     C --> D{"Photo or Video?"}
     D -->|"Photo"| E["Snap → 1280 px JPEG"]
-    D -->|"Video"| F["Record (MediaRecorder, 600 kbps)<br/>red ring counts to 20 s"]
-    F -->|"Stop or 20 s"| G{"Max 2.5 MB?"}
-    G -->|"No"| X2["'Too big, record a shorter clip'"]
-    G -->|"Yes"| H["Preview"]
+    D -->|"Video"| F["Record (~450 kbit/s)<br/>timer counts to 2:00"]
+    F -->|"Stop, 2:00, or nearly 8 MB"| H["Preview"]
     E --> H
     H -->|"Retake"| C
     H -->|"Send"| I["Encrypted message with<br/>the photo or video"]
@@ -305,7 +314,7 @@ flowchart TD
     A["Tap 💖 (top bar, Home or Ctrl + K)"] --> B["22 hearts burst from the button"]
     B --> C{"Partner online?"}
     C -->|"Yes"| D["Send a live 'heart' signal<br/>(encrypted, not stored)"]
-    D --> E["Partner: 30 hearts burst +<br/>'💖 Riya is missing you'"]
+    D --> E["Partner: 30 hearts burst +<br/>'💖 Riya is missing you'<br/>(or a notification if in the background)"]
     D --> F["You: 'Kabir knows you're missing them 💖'"]
     C -->|"No"| G["Save a '💖 I'm missing you'<br/>chat message"]
     G --> H["They see it as soon as they're back"]
@@ -313,38 +322,62 @@ flowchart TD
 
 ---
 
-## 4.15 Voice and video call
+## 4.15 A call, step by step
 
 ```mermaid
 sequenceDiagram
     participant A as Riya's phone
-    participant S as Relay (encrypted signals)
+    participant S as UsSpace server
     participant B as Kabir's phone
     A->>A: Tap 📞 or 🎥, check Kabir is online
+    A->>S: ice? (routes for calls)
+    S-->>A: STUN + TURN (if set up)
     A->>A: Turn on mic (and camera)
-    loop every 3 s, for up to 40 s
-        A->>S: call ring (id, voice or video)
+    loop every 3 s, for up to 45 s
+        A->>S: call ring (encrypted signal)
         S-->>B: ring
     end
-    B->>B: Ringtone + vibration + Accept / Decline
+    B->>B: Ringtone + vibration (+ notification if in the background)
+    B->>S: ice? → routes
     B->>B: Accept → turn on mic (and camera)
     B->>S: call accept
     S-->>A: accept
-    A->>A: Create offer, gather all network routes (STUN / TURN)
-    A->>S: call offer (one message)
+    A->>S: call offer (right away)
     S-->>B: offer
-    B->>B: Create answer, gather routes
     B->>S: call answer
     S-->>A: answer
-    A-->>B: 🔊 🎥 Audio and video flow DIRECTLY phone to phone (DTLS-SRTP)
-    Note over A,B: Either side can mute, turn the camera off, flip it, minimise, or hang up (end)
+    A->>S: call ice (routes, as they are found)
+    B->>S: call ice (routes, as they are found)
+    A-->>B: 🔊 🎥 Direct audio/video, phone to phone (DTLS-SRTP)
+    Note over A,B: No direct line within 15 s? Both switch to the server path (see 4.16)
 ```
 
-**Special cases:** no answer in 40 s → "Kabir didn't answer". Decline → "Kabir can't talk right now". Already on a call → "busy". Both call at the same moment → the phone with the smaller device id answers the other call automatically. Closing the page → the call ends.
+**Special cases:** no answer in 45 s → "Kabir didn't answer". Decline → "Kabir can't talk right now". Already on a call → "busy". Both call at the same moment → one phone answers the other call automatically. Closing the page → the call ends. Missed call → a notification.
 
 ---
 
-## 4.16 Call screen states
+## 4.16 Direct, repaired or through the server
+
+```mermaid
+flowchart TD
+    S["Call accepted"] --> D["Try direct (WebRTC)<br/>STUN + TURN routes"]
+    D --> Q{"Connected within 15 s?"}
+    Q -->|"Yes"| OK["✅ Direct call<br/>full quality"]
+    Q -->|"No"| R["🛰️ Through the UsSpace server"]
+    OK --> DROP{"Line drops<br/>(e.g. Wi-Fi → 4G)"}
+    DROP -->|"Back within 5 s"| OK
+    DROP -->|"No"| FIX["Caller repairs the line once<br/>(ICE restart)"]
+    FIX -->|"Works"| OK
+    FIX -->|"Still broken"| R
+    R --> V["Voice: 16 kHz μ-law, 40 ms pieces"]
+    R --> P["Video: small JPEG pictures, ~8 / s<br/>(skipped when the network is slow)"]
+    V & P --> E["Each piece sealed with the room key<br/>→ server passes it on, never stores it"]
+    E --> CH["Call screen: 'Connected through UsSpace · encrypted'"]
+```
+
+---
+
+## 4.17 Call screen states
 
 ```mermaid
 flowchart LR
@@ -352,18 +385,22 @@ flowchart LR
     Idle -->|"ring arrives"| In["incoming<br/>ripples + Accept / Decline"]
     Out -->|"accept arrives"| Con["connecting"]
     In -->|"Accept"| Con
-    Con -->|"media flows"| Live["live<br/>timer m:ss"]
+    Con -->|"direct line up"| Live["live · direct<br/>timer m:ss"]
+    Con -->|"no direct line"| Relay["live · through UsSpace"]
+    Live -->|"line lost"| Relay
     Live -->|"Minimise"| Mini["floating call bar<br/>(keep browsing)"]
+    Relay -->|"Minimise"| Mini
     Mini -->|"Open call"| Live
     Out -->|"no answer / decline / busy"| Idle
     In -->|"Decline / caller hangs up"| Idle
     Live -->|"End"| Idle
+    Relay -->|"End"| Idle
     Mini -->|"End"| Idle
 ```
 
 ---
 
-## 4.17 Gallery: share, show and talk
+## 4.18 Gallery: share, show and talk
 
 ```mermaid
 flowchart TD
@@ -382,38 +419,37 @@ flowchart TD
 
 ---
 
-## 4.18 Canvas: draw, stickers and cartoons
+## 4.19 Canvas: a board that grows
 
 ```mermaid
 flowchart TD
     A["Finger / mouse down"] --> B{"Tool?"}
-    B -->|"Pen / Neon / Eraser"| C["Draw live on the top layer<br/>(points 0–1000)"]
+    B -->|"Pen / Neon / Eraser"| C["Draw live on the top layer<br/>(in units: width 1000)"]
     C -->|"Finger up"| D["Save the stroke as a shared item"]
     B -->|"Sticker"| E["Stamp the emoji → shared item"]
-    D & E --> F["Both phones redraw<br/>paper + photos → ink → live stroke"]
-    P["Add photo"] --> Q["Shrink to 900 px"]
-    Q --> R{"Cartoon on?"}
-    R -->|"Yes"| S["Cartoon filter:<br/>colour bands + dark outlines"]
-    R -->|"No"| T["Place the photo"]
-    S --> T --> F
+    B -->|"✋ Scroll"| SC["The page scrolls instead<br/>(handy on phones)"]
+    D & E --> H["Board height = lowest drawing + 350 units of room<br/>(750 → max 5000)"]
+    H --> F["Both phones redraw<br/>paper + photos → ink → live stroke"]
+    MS["↓ More space"] --> H
+    P["Add photo"] --> Q["Shrink to 900 px, place in<br/>the middle of what you see"] --> F
     U["Undo"] --> U2["Remove MY last stroke,<br/>sticker or photo"]
     X["Clear"] --> X2{"Sure? Clears for both"} -->|"Yes"| X3["Delete all strokes, stickers, photos"]
-    Y["Save"] --> Y2["Download a PNG"]
+    Y["Save"] --> Y2["Download the whole board as a PNG"]
 ```
 
 ---
 
-## 4.19 Game invites
+## 4.20 Game invites
 
 ```mermaid
 sequenceDiagram
     actor Riya
     participant G as Shared "game" item
     actor Kabir
-    Riya->>G: Invite (game = Tic-Tac-Toe, status = invited)
+    Riya->>G: Invite (game = Connect Four, status = invited)
     Riya->>Riya: "Waiting for Kabir to join…" (or Cancel invite)
-    G-->>Kabir: Pop-up anywhere in the app: "🎮 Riya invites you to play Tic-Tac-Toe" + Join game
-    Kabir->>G: Join → fresh board, status = playing
+    G-->>Kabir: Pop-up or notification: "🎮 Riya invites you to play Connect Four" + Join game
+    Kabir->>G: Join → fresh board, status = playing (Riya moves first)
     G-->>Riya: "🎮 Kabir joined your game!" and the board opens
     Note over Riya,Kabir: The game starts only when the partner joins
     Riya->>G: End game → back to the game list
@@ -423,34 +459,31 @@ If Kabir is offline, Riya sees "Kabir is offline, they'll see your invite when t
 
 ---
 
-## 4.20 Playing the games
+## 4.21 The 8 games
 
 ```mermaid
 flowchart LR
-    subgraph TTT["❌⭕ Tic-Tac-Toe"]
-      A1["My turn? Tap an empty square"] --> A2["Check the 8 lines"]
-      A2 -->|"Win / draw"| A3["Score + 🎉 on both phones"]
-      A2 -->|"No"| A4["Turn → partner"]
-      A3 --> A5["New round: the other person starts"]
+    subgraph Turns["Take turns"]
+      T1["❌⭕ Tic-Tac-Toe<br/>3 in a row"]
+      T2["🔴 Connect Four<br/>drop hearts, 4 in a row<br/>(across, down, diagonal)"]
+      T3["🧠 Memory Match<br/>find a pair → keep your turn"]
     end
-    subgraph MEM["🧠 Memory Match"]
-      M1["My turn: flip 2 cards"] --> M2{"Pair?"}
-      M2 -->|"Yes"| M3["+1 point, keep your turn"]
-      M2 -->|"No"| M4["Flip back → partner's turn"]
-      M3 --> M5{"All pairs found?"}
-      M5 -->|"Yes"| M6["Most points wins 🎉"]
+    subgraph Secret["Pick in secret, then reveal"]
+      S1["✂️ Rock Paper Scissors<br/>first to 3 wins"]
+      S2["🙋 Never Have I Ever<br/>'I have' / 'Never'"]
+      S3["🤔 Would You Rather<br/>match or not"]
+      S4["💘 How Well Do You Know Me?<br/>one answers, one guesses,<br/>a right guess scores, then swap"]
     end
-    subgraph TOD["🎲 Truth or Dare"]
-      T1["Truth / Dare / Surprise"] --> T2["Random prompt"] --> T3["Card flips on BOTH phones"]
-    end
-    subgraph WYR["🤔 Would You Rather"]
-      W1["Both pick secretly"] --> W2["Both answers shown<br/>(match or not)"] --> W3["Next question<br/>(same order on both phones)"]
+    subgraph Shared["Shared card"]
+      C1["🎲 Truth or Dare<br/>the card flips on both phones"]
     end
 ```
 
+Questions for the quiz, Never Have I Ever and Would You Rather come in the **same shuffled order on both phones** (from a shared seed).
+
 ---
 
-## 4.21 Music: one player, in sync
+## 4.22 Music: one player, in sync
 
 ```mermaid
 flowchart TD
@@ -462,7 +495,7 @@ flowchart TD
     P -->|"No"| R["position"]
     Q & R --> AU["Own audio element<br/>(corrects if more than 1.5 s off)"]
     SONGS --> AU
-    AU --> RNG["Server sends only the<br/>needed part (Range 206)"]
+    AU --> RNG["Streams only while playing<br/>(Range 206)"]
     C1["Music page · 🎵 top-bar pop-up<br/>lock screen / headphones"] -->|"Play · Pause · Seek · Next · Prev"| S["Write {position at now, at = now}"]
     S --> D
     E{"Song ended?"} -->|"repeat one"| S1["position 0"]
@@ -471,11 +504,26 @@ flowchart TD
     AU -.->|"browser blocks autoplay"| TAP["'Tap to hear it here'"]
 ```
 
-Volume is **per phone** (saved on this phone only). Changing pages never stops the music.
+---
+
+## 4.23 The server forgets what both phones have
+
+```mermaid
+flowchart TD
+    A["Event N arrives at the server"] --> B["Kept in memory<br/>(max 80 MB per room, 320 MB in total)"]
+    B --> C["Sent to both phones"]
+    C --> D["Each phone saves it,<br/>then says 'seen N'"]
+    D --> E{"BOTH phones<br/>have seen N?"}
+    E -->|"Yes"| F["Drop everything up to N"]
+    E -->|"No (partner offline)"| B
+    G["A new phone takes the free seat"] --> H{"Older events already dropped?"}
+    H -->|"Yes"| I["Server asks the other phone:<br/>'resync' → it uploads everything again"]
+    H -->|"No"| J["The new phone simply catches up"]
+```
 
 ---
 
-## 4.22 PIN lock and privacy blur
+## 4.24 PIN lock and privacy blur
 
 ```mermaid
 flowchart TD
@@ -498,29 +546,34 @@ flowchart TD
 
 ---
 
-## 4.23 Close room = delete everything
+## 4.25 Close room = delete everything
 
 ```mermaid
 sequenceDiagram
     actor Riya
     participant A as Riya's phone
     participant S as Relay
+    participant DB as Database (optional)
     participant B as Kabir's phone
     Riya->>A: Settings → Close room & delete everything → Confirm
-    A->>S: close
-    S->>S: Delete the room from memory, remember "closed" for 30 days
-    S-->>A: closed
-    S-->>B: closed
-    A->>A: Wipe IndexedDB + local storage for this room
-    B->>B: Wipe IndexedDB + local storage for this room
-    A-->>Riya: "🔒 The room was closed. Everything was deleted."
-    B-->>B: Same message, back to the start
-    Note over S,B: If Kabir was offline, Kabir's phone gets "closed" on reconnect and wipes then. Nobody can re-create a closed room.
+    alt Riya is offline
+        A-->>Riya: "You're offline — connect to close the room for both of you"
+    else Riya is online
+        A->>S: close
+        S->>S: Delete the room from memory, remember "closed"
+        S->>DB: closed:room (180 days) · delete the room record
+        S-->>A: closed
+        S-->>B: closed
+        A->>A: Wipe IndexedDB + local storage for this room
+        B->>B: Wipe IndexedDB + local storage for this room
+        A-->>Riya: "🔒 The room was closed. Everything was deleted."
+    end
+    Note over S,B: If Kabir was offline, Kabir's phone gets "closed" on reconnect and wipes then — even after a server restart when the database is on. Nobody can re-create a closed room.
 ```
 
 ---
 
-## 4.24 Leave on this phone only
+## 4.26 Leave on this phone only
 
 ```mermaid
 flowchart TD
@@ -530,12 +583,30 @@ flowchart TD
     C --> D["Server frees this seat<br/>(the room stays for your partner)"]
     C --> E["Wipe this phone's copy + session"]
     E --> F["Back to the landing page"]
-    D --> G["You can join again later with the code"]
+    D --> G["You can join again later with the code<br/>(the other phone re-sends everything)"]
 ```
 
 ---
 
-## 4.25 Quick search (Ctrl + K)
+## 4.27 Notifications
+
+```mermaid
+flowchart TD
+    I["Add UsSpace to the home screen<br/>(manifest + icons)"] --> S["Settings → Notifications → Turn on"]
+    S --> P{"Browser allows it?"}
+    P -->|"No"| N["'Blocked in your browser settings'"]
+    P -->|"Yes"| ON["On for this phone"]
+    E["Something happens<br/>(ring, message, photo, heart, invite)"] --> V{"Is UsSpace on screen?"}
+    V -->|"Yes"| T["In-app pop-up only"]
+    V -->|"No, in the background"| W["Service worker shows a notification<br/>'📞 Kabir is calling…' · '💬 Kabir — New message'"]
+    W --> TAP["Tap it → UsSpace opens<br/>on the right page"]
+```
+
+The service worker caches nothing, and notifications never show what a message says.
+
+---
+
+## 4.28 Quick search (Ctrl + K)
 
 ```mermaid
 flowchart LR
@@ -552,7 +623,7 @@ flowchart LR
 
 ---
 
-## 4.26 Phone navigation
+## 4.29 Phone navigation
 
 ```mermaid
 flowchart LR
@@ -569,18 +640,19 @@ flowchart LR
 
 ---
 
-## 4.27 Running it for real (deployment)
+## 4.30 Running it for real (deployment)
 
 ```mermaid
 flowchart LR
     Dev["npm run dev<br/>(site + relay + music on :8080)"] --> Build["npm run build → dist/<br/>(+ dist/music)"]
     Build --> Start["npm start<br/>server/index.mjs"]
     Start --> Serve["Serves dist/ with security headers,<br/>gzip and seekable music"]
-    Start --> WS["Relay on /ws<br/>rooms in memory only"]
+    Start --> WS["Relay on /ws<br/>rooms in memory, call backup path"]
     Docker["Dockerfile"] --> Start
     Serve & WS --> HTTPS["Behind HTTPS<br/>(Render free, Railway, Fly.io, a VPS…)"]
     HTTPS --> Phones["📱 📱 Both phones open the same address"]
-    TURN["Optional TURN server<br/>VITE_TURN_*"] -.-> Phones
+    TURN["Optional: Cloudflare TURN<br/>CLOUDFLARE_TURN_*"] -.-> WS
+    DB["Optional: Upstash<br/>UPSTASH_REDIS_REST_*"] -.-> WS
 ```
 
 **Back:** [← 3 · Design](03-design.md) · **Next:** [5 · Directory Map →](05-directory-map.md)

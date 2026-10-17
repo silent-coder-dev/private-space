@@ -2,6 +2,8 @@ import { createContext, useContext } from "react";
 
 export type CallKind = "audio" | "video";
 export type CallPhase = "idle" | "outgoing" | "incoming" | "connecting" | "active";
+/** "direct": phone to phone (WebRTC). "relay": through the UsSpace server, when a direct line is impossible. */
+export type CallPath = "direct" | "relay";
 
 export interface CallState {
   phase: CallPhase;
@@ -13,6 +15,9 @@ export interface CallState {
   minimized: boolean;
   local: MediaStream | null;
   remote: MediaStream | null;
+  path: CallPath;
+  /** In a relayed video call: are pictures from your partner arriving? */
+  remoteVideo: boolean;
 }
 
 export interface CallApi extends CallState {
@@ -24,6 +29,8 @@ export interface CallApi extends CallState {
   toggleCamera: () => void;
   flipCamera: () => void;
   setMinimized: (minimized: boolean) => void;
+  /** Where a relayed call draws your partner's video. */
+  relayCanvas: HTMLCanvasElement | null;
 }
 
 export const IDLE_CALL: CallState = {
@@ -36,6 +43,8 @@ export const IDLE_CALL: CallState = {
   minimized: false,
   local: null,
   remote: null,
+  path: "direct",
+  remoteVideo: true,
 };
 
 export const CallContext = createContext<CallApi | null>(null);
@@ -46,9 +55,12 @@ export function useCall(): CallApi {
   return ctx;
 }
 
-/** Free public STUN servers + an optional TURN server (needed on some strict mobile networks). */
-export function iceServers(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
+/**
+ * Used only when the server doesn't answer: free public STUN servers, plus a TURN server
+ * baked into the build (VITE_TURN_*). Normally the server provides the routes (see server/ice.mjs).
+ */
+export function fallbackIceServers(): RTCIceServer[] {
+  const servers: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
   const turn = import.meta.env.VITE_TURN_URL as string | undefined;
   if (turn) {
     servers.push({

@@ -67,6 +67,36 @@ export const COLUMNS = {
     kind: "doc",
     flip: ((w: { picks: { me: number | null; partner: number | null } }) => ({ ...w, picks: swapPair(w.picks) })) as Flip,
   },
+  c4: {
+    kind: "doc",
+    flip: ((g: { board: (Sender | null)[]; turn: Sender; starter: Sender; wins: { me: number; partner: number } }) => ({
+      ...g,
+      board: g.board.map(swapCell),
+      turn: swap(g.turn),
+      starter: swap(g.starter),
+      wins: swapPair(g.wins),
+    })) as Flip,
+  },
+  rps: {
+    kind: "doc",
+    flip: ((g: { picks: { me: number | null; partner: number | null }; history?: { me: number; partner: number }[] }) => ({
+      ...g,
+      picks: swapPair(g.picks),
+      history: (g.history ?? []).map((h) => swapPair(h)),
+    })) as Flip,
+  },
+  nhie: {
+    kind: "doc",
+    flip: ((g: { answers: { me: boolean | null; partner: boolean | null }; haves: { me: number; partner: number } }) => ({
+      ...g,
+      answers: swapPair(g.answers),
+      haves: swapPair(g.haves),
+    })) as Flip,
+  },
+  quiz: {
+    kind: "doc",
+    flip: ((g: { subject: Sender; points: { me: number; partner: number } }) => ({ ...g, subject: swap(g.subject), points: swapPair(g.points) })) as Flip,
+  },
 } satisfies Record<string, ColumnSpec>;
 
 export type Column = keyof typeof COLUMNS;
@@ -89,7 +119,8 @@ const byTime = (a: { at?: number; id: string }, b: { at?: number; id: string }) 
 
 /** Where the engine saves things. One `write` is all-or-nothing, so items and the catch-up position never disagree. */
 export interface Persistence {
-  write(puts: [string, unknown][], removes: string[]): void;
+  /** Resolves once the data is really stored (rejects if it couldn't be). */
+  write(puts: [string, unknown][], removes: string[]): void | Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -109,10 +140,10 @@ export async function openPersistence(roomId: string): Promise<{ persist: Persis
       const data = await idbLoadPrefix(prefix);
       const persist: Persistence = {
         write: (puts, removes) =>
-          void idbWrite(
+          idbWrite(
             puts.map(([key, value]) => [prefix + key, value]),
             removes.map((key) => prefix + key),
-          ).catch(() => undefined),
+          ),
         clear: () => idbClearPrefix(prefix).catch(() => undefined),
       };
       return { persist, data };
@@ -136,6 +167,8 @@ export class SyncEngine {
   private pending = new Map<string, Set<string>>();
   private meta: Meta;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  /** true while every write so far has been stored. */
+  private writing: Promise<boolean> = Promise.resolve(true);
 
   constructor(
     readonly device: string,
@@ -267,12 +300,13 @@ export class SyncEngine {
     return puts.sort((a, b) => a.ts - b.ts);
   }
 
-  flush() {
+  /** Save everything that changed. Resolves true once it (and every earlier save) is really stored. */
+  flush(): Promise<boolean> {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
-    if (this.dirtyItems.size === 0 && this.dirtyKeys.size === 0) return;
+    if (this.dirtyItems.size === 0 && this.dirtyKeys.size === 0) return this.writing;
     const puts: [string, unknown][] = [];
     const removes: string[] = [];
     for (const mk of this.dirtyItems) {
@@ -290,7 +324,15 @@ export class SyncEngine {
     puts.push([META, this.meta]);
     this.dirtyItems.clear();
     this.dirtyKeys.clear();
-    this.persist.write(puts, removes);
+    let write: Promise<void>;
+    try {
+      write = Promise.resolve(this.persist.write(puts, removes));
+    } catch (err) {
+      write = Promise.reject(err);
+    }
+    const before = this.writing;
+    this.writing = Promise.all([before, write.then(() => true, () => false)]).then(([a, b]) => a && b);
+    return this.writing;
   }
 
   /** Delete everything this device saved for the room. */

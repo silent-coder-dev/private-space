@@ -3,10 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { blobToDataUrl, MAX_VIDEO_BYTES, recorderType, toJpeg } from "@/lib/media";
+import { blobToDataUrl, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, recorderType, toJpeg } from "@/lib/media";
+import { formatDuration } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-const MAX_SECONDS = 20;
 
 type Shot = { image: string } | { video: string };
 
@@ -63,8 +63,16 @@ export function CameraCapture({ open, onOpenChange, onSend }: { open: boolean; o
     const stream = streamRef.current;
     if (!stream || typeof MediaRecorder === "undefined") return toast.error("Video recording isn't supported in this browser.");
     const chunks: Blob[] = [];
-    const recorder = new MediaRecorder(stream, { mimeType: recorderType(), videoBitsPerSecond: 600_000, audioBitsPerSecond: 64_000 });
-    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    let bytes = 0;
+    // ~450 kbit/s: a full 2-minute video stays small enough to send quickly (about 7 MB).
+    const recorder = new MediaRecorder(stream, { mimeType: recorderType(), videoBitsPerSecond: 400_000, audioBitsPerSecond: 48_000 });
+    recorder.ondataavailable = (e) => {
+      if (!e.data.size) return;
+      chunks.push(e.data);
+      bytes += e.data.size;
+      // Stop a little before the size limit, so a clip is never too big to send.
+      if (bytes > MAX_VIDEO_BYTES * 0.95 && recorder.state === "recording") recorder.stop();
+    };
     recorder.onstop = async () => {
       const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
       stopStream();
@@ -80,7 +88,7 @@ export function CameraCapture({ open, onOpenChange, onSend }: { open: boolean; o
       const secs = Math.floor((Date.now() - started) / 1000);
       if (recorder.state !== "recording") return clearInterval(tick);
       setRecording(Math.max(1, secs));
-      if (secs >= MAX_SECONDS) {
+      if (secs >= MAX_VIDEO_SECONDS) {
         clearInterval(tick);
         recorder.stop();
       }
@@ -114,7 +122,7 @@ export function CameraCapture({ open, onOpenChange, onSend }: { open: boolean; o
           )}
           {recording > 0 && (
             <span className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-destructive px-3 py-1 text-sm font-semibold text-white">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> {recording}s / {MAX_SECONDS}s
+              <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> {formatDuration(recording)} / {formatDuration(MAX_VIDEO_SECONDS)}
             </span>
           )}
           <button type="button" onClick={() => onOpenChange(false)} aria-label="Close camera" className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white">

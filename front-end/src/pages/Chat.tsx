@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Check, CheckCheck, Clock3, Heart, ImagePlus, Lock, MoreVertical, Phone, Send, Smile, Trash2, Video } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, Camera, Check, CheckCheck, Clock3, Heart, ImagePlus, Lock, MoreVertical, Phone, Send, Smile, Trash2, Video } from "lucide-react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -62,6 +62,8 @@ const Chat = () => {
   const now = useNow(30_000);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const sendRef = useRef<HTMLButtonElement>(null);
@@ -83,9 +85,23 @@ const Chat = () => {
     el.scrollTo({ top: el.scrollHeight, behavior: sorted.length <= 1 ? "auto" : "smooth" });
   }, [sorted.length, partnerTyping]);
 
-  useEffect(() => {
+  // Open at the newest message, before anything is painted.
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  // Photos and videos load after the chat opens and push the messages down:
+  // while you're at the bottom, stay pinned to the newest message.
+  useEffect(() => {
+    const el = scrollRef.current;
+    const content = contentRef.current;
+    if (!el || !content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
   }, []);
 
   // Read receipts: tell your partner you've seen their newest message.
@@ -182,6 +198,15 @@ const Chat = () => {
     const el = scrollRef.current;
     if (!el) return;
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (stickToBottom.current !== atBottom) setAtBottom(stickToBottom.current);
+  };
+
+  const jumpToLatest = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = true;
+    setAtBottom(true);
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   };
 
   const showEarlier = () => {
@@ -261,74 +286,92 @@ const Chat = () => {
       </div>
 
       {/* Messages */}
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6"
-        aria-live="polite"
-        aria-label="Messages"
-      >
-        <p className="mx-auto mb-3 flex w-fit items-center gap-1.5 rounded-full bg-white/[0.04] px-3 py-1 text-[11px] text-muted-foreground">
-          <Lock className="h-3 w-3" /> Messages are end-to-end encrypted. Only you two can read them.
-        </p>
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="h-full overflow-y-auto overscroll-contain px-3 py-4 sm:px-6"
+          aria-live="polite"
+          aria-label="Messages"
+        >
+          <div ref={contentRef}>
+            <p className="mx-auto mb-3 flex w-fit items-center gap-1.5 rounded-full bg-white/[0.04] px-3 py-1 text-[11px] text-muted-foreground">
+              <Lock className="h-3 w-3" /> Messages are end-to-end encrypted. Only you two can read them.
+            </p>
 
-        {hiddenCount > 0 && (
-          <div className="mb-2 flex justify-center">
-            <Button variant="glass" size="sm" onClick={showEarlier}>
-              Show {Math.min(PAGE, hiddenCount)} earlier messages
-            </Button>
+            {hiddenCount > 0 && (
+              <div className="mb-2 flex justify-center">
+                <Button variant="glass" size="sm" onClick={showEarlier}>
+                  Show {Math.min(PAGE, hiddenCount)} earlier messages
+                </Button>
+              </div>
+            )}
+
+            {sorted.length === 0 && (
+              <div className="grid min-h-[50vh] place-items-center text-center">
+                <div className="space-y-2">
+                  <motion.p
+                    className="text-5xl"
+                    animate={{ rotate: [0, 14, -8, 14, 0] }}
+                    transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 1 }}
+                  >
+                    👋
+                  </motion.p>
+                  <p className="font-heading font-semibold">Say hello to {profile.partner}</p>
+                  <p className="text-sm text-muted-foreground">Your first message starts the story.</p>
+                </div>
+              </div>
+            )}
+
+            <AnimatePresence initial={false}>
+              {rows.map((row) =>
+                row.type === "day" ? (
+                  <motion.div key={row.key} layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-4 flex justify-center">
+                    <span className="glass rounded-full px-3 py-1 text-[11px] text-muted-foreground">{row.label}</span>
+                  </motion.div>
+                ) : (
+                  <MessageBubble
+                    key={row.key}
+                    msg={row.msg}
+                    startsGroup={row.startsGroup}
+                    endsGroup={row.endsGroup}
+                    delivery={row.msg.sender === "me" ? deliveryOf(row.msg) : undefined}
+                    onReact={toggleReaction}
+                    onOpenImage={setViewer}
+                  />
+                ),
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {partnerTyping && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="mt-2 flex w-fit items-center gap-1 rounded-2xl rounded-bl-md border border-white/10 bg-card/80 px-4 py-3"
+                  aria-label={`${profile.partner} is typing`}
+                >
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="h-2 w-2 animate-bounce-dot rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 0.16}s` }} />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        )}
-
-        {sorted.length === 0 && (
-          <div className="grid h-[70%] place-items-center text-center">
-            <div className="space-y-2">
-              <motion.p
-                className="text-5xl"
-                animate={{ rotate: [0, 14, -8, 14, 0] }}
-                transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 1 }}
-              >
-                👋
-              </motion.p>
-              <p className="font-heading font-semibold">Say hello to {profile.partner}</p>
-              <p className="text-sm text-muted-foreground">Your first message starts the story.</p>
-            </div>
-          </div>
-        )}
-
-        <AnimatePresence initial={false}>
-          {rows.map((row) =>
-            row.type === "day" ? (
-              <motion.div key={row.key} layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-4 flex justify-center">
-                <span className="glass rounded-full px-3 py-1 text-[11px] text-muted-foreground">{row.label}</span>
-              </motion.div>
-            ) : (
-              <MessageBubble
-                key={row.key}
-                msg={row.msg}
-                startsGroup={row.startsGroup}
-                endsGroup={row.endsGroup}
-                delivery={row.msg.sender === "me" ? deliveryOf(row.msg) : undefined}
-                onReact={toggleReaction}
-                onOpenImage={setViewer}
-              />
-            ),
-          )}
-        </AnimatePresence>
-
+        </div>
         <AnimatePresence>
-          {partnerTyping && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+          {!atBottom && (
+            <motion.button
+              type="button"
+              onClick={jumpToLatest}
+              initial={{ opacity: 0, y: 12, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="mt-2 flex w-fit items-center gap-1 rounded-2xl rounded-bl-md border border-white/10 bg-card/80 px-4 py-3"
-              aria-label={`${profile.partner} is typing`}
+              exit={{ opacity: 0, y: 12, scale: 0.9 }}
+              className="glass absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-xl"
             >
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="h-2 w-2 animate-bounce-dot rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 0.16}s` }} />
-              ))}
-            </motion.div>
+              <ArrowDown className="h-4 w-4 text-primary" /> Latest messages
+            </motion.button>
           )}
         </AnimatePresence>
       </div>

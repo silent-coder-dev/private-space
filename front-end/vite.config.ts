@@ -3,13 +3,15 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
 import { listMusic } from "./server/music.mjs";
+import { createIceProvider } from "./server/ice.mjs";
+import { createKv } from "./server/kv.mjs";
 import { createRelay } from "./server/relay.mjs";
 
 /** Runs the real-time room relay on the same port as the dev/preview server (at /ws). */
 function roomRelay(): Plugin {
   const attach = (httpServer: import("node:http").Server | null | undefined) => {
     if (!httpServer) return;
-    const relay = createRelay({ dataDir: null });
+    const relay = createRelay({ dataDir: null, kv: createKv(), ice: createIceProvider() });
     httpServer.on("upgrade", (req, socket, head) => relay.handleUpgrade(req, socket, head));
     httpServer.on("close", () => relay.close());
   };

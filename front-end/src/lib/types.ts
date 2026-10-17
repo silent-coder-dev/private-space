@@ -83,7 +83,7 @@ export interface TodDoc {
   n: number;
 }
 
-export type GameId = "ttt" | "tod" | "memory" | "wyr";
+export type GameId = "ttt" | "tod" | "memory" | "wyr" | "c4" | "rps" | "nhie" | "quiz";
 
 /** The game invitation / session both of you share. */
 export interface GameSession {
@@ -133,8 +133,9 @@ export interface Stroke {
   color: string;
   /** Width as a share of the canvas width (0–1). */
   size: number;
-  /** Flattened x,y pairs, 0–1000. */
+  /** Flattened x,y pairs. Version 2: canvas units (the width is 1000, the height grows). Old: 0–1000 of a 4:3 board. */
   pts: number[];
+  v?: 2;
 }
 
 export interface Sticker {
@@ -143,9 +144,45 @@ export interface Sticker {
   at: number;
   kind: "emoji" | "image";
   value: string;
-  /** Centre and size as a share of the canvas (0–1). */
+  /** Centre and size. Version 2: canvas units (the width is 1000). Old: a share (0–1) of a 4:3 board. */
   x: number;
   y: number;
   w: number;
   h: number;
+  v?: 2;
+}
+
+/** Connect Four: 7 columns × 6 rows, top row first. */
+export interface C4Doc {
+  board: (Sender | null)[];
+  turn: Sender;
+  starter: Sender;
+  round: number;
+  wins: { me: number; partner: number };
+  draws: number;
+}
+
+/** Rock Paper Scissors: secret picks (0 rock, 1 paper, 2 scissors) and every finished round. */
+export interface RpsDoc {
+  round: number;
+  picks: { me: number | null; partner: number | null };
+  history: { me: number; partner: number }[];
+}
+
+/** Never Have I Ever: both answer secretly, then see each other's answer. */
+export interface NhieDoc {
+  index: number;
+  seed: number;
+  answers: { me: boolean | null; partner: boolean | null };
+  haves: { me: number; partner: number };
+}
+
+/** How Well Do You Know Me: the "subject" answers about themselves, the other one guesses. */
+export interface QuizDoc {
+  index: number;
+  seed: number;
+  subject: Sender;
+  answer: number | null;
+  guess: number | null;
+  points: { me: number; partner: number };
 }

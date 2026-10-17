@@ -1,4 +1,4 @@
-import { Check, Copy, Eye, EyeOff, Lock, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import { Bell, Check, Copy, Eye, EyeOff, Lock, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -21,6 +21,7 @@ import { ConnectionPill } from "@/components/layout/ConnectionPill";
 import { InitialAvatar } from "@/components/layout/InitialAvatar";
 import { useRoom } from "@/context/room";
 import { useSpace } from "@/context/space";
+import { notificationsOn, notificationsSupported, turnOffNotifications, turnOnNotifications } from "@/lib/notify";
 import { toDateInput } from "@/lib/time";
 
 /** Your name, the shared "together since" date, the room code and leaving the room. */
@@ -139,6 +140,8 @@ function SettingsForm({ onDone }: { onDone: () => void }) {
         </p>
       </div>
 
+      <NotificationSettings />
+
       <PinLockSettings />
 
       <AlertDialog>
@@ -157,7 +160,13 @@ function SettingsForm({ onDone }: { onDone: () => void }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep our room</AlertDialogCancel>
-            <AlertDialogAction onClick={closeRoom} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => {
+                if (closeRoom()) toast.loading("Closing the room and deleting everything…");
+                else toast.error("You're offline", { description: "Connect to the internet to close the room — the server must delete it for both of you." });
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               Close & delete everything
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -191,6 +200,56 @@ function SettingsForm({ onDone }: { onDone: () => void }) {
 }
 
 /** Optional PIN lock for this phone. */
+/** Phone notifications for calls, messages and hearts while UsSpace is in the background. */
+function NotificationSettings() {
+  const [on, setOn] = useState(notificationsOn);
+  const supported = notificationsSupported();
+  const blocked = supported && Notification.permission === "denied";
+  const isIphone = typeof navigator !== "undefined" && /iPhone|iPad/.test(navigator.userAgent);
+
+  const enable = async () => {
+    const result = await turnOnNotifications();
+    setOn(result === "granted");
+    if (result === "granted") toast.success("Notifications are on 🔔");
+    else if (result === "denied") toast.error("Notifications are blocked", { description: "Allow them for this site in your browser settings." });
+  };
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="flex items-center gap-2 font-heading text-sm font-semibold">
+        <Bell className="h-4 w-4 text-primary" /> Notifications on this phone
+      </p>
+      {!supported ? (
+        <p className="text-xs text-muted-foreground">
+          {isIphone ? "On iPhone: tap Share → Add to Home Screen, open UsSpace from there, then turn this on." : "This browser can't show notifications."}
+        </p>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {blocked
+              ? "Blocked in your browser settings."
+              : on
+                ? "On. Calls, messages and hearts ring even when UsSpace is in the background (never showing what a message says)."
+                : "Get a call, message or heart even when UsSpace is in the background."}
+          </p>
+          {on ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => {
+                turnOffNotifications();
+                setOn(false);
+              }}>
+              Turn off
+            </Button>
+          ) : (
+            <Button type="button" variant="gradient" size="sm" disabled={blocked} onClick={() => void enable()}>
+              Turn on
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PinLockSettings() {
   const [lock, setLock] = useLockSettings();
   const [pin, setPin] = useState("");

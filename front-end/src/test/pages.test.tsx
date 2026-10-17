@@ -118,11 +118,29 @@ describe("room pages", () => {
     expect(screen.getAllByAltText("Shared photo")).toHaveLength(1);
   });
 
-  it("canvas has its drawing tools", async () => {
+  it("canvas has its drawing tools and grows as the drawing grows", async () => {
     enterRoom();
     await renderPage(<Canvas />, "/canvas");
     expect(screen.getByLabelText("Drawing area")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Scroll/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Cartoon/)).toBeNull();
+    const board = () => Number(screen.getByLabelText("Drawing area").parentElement?.dataset.height);
+    expect(board()).toBe(750);
+    // Your partner draws far down the page: the board grows so it fits, with room to spare.
+    act(() => {
+      engineRef?.receive({
+        col: "strokes",
+        id: "s1",
+        data: { id: "s1", by: "me", at: 1, tool: "pen", color: "#000", size: 0.01, pts: [100, 1900, 200, 2000], v: 2 },
+        ts: Date.now() + 1000,
+        by: PARTNER_DEVICE,
+      });
+    });
+    expect(board()).toBeGreaterThanOrEqual(2250);
+    const before = board();
+    fireEvent.click(screen.getByRole("button", { name: /More space/ }));
+    expect(board()).toBeGreaterThan(before);
   });
 
   it("music explains where to put songs when the folder is empty", async () => {
@@ -195,7 +213,7 @@ describe("games", { timeout: 15_000 }, () => {
     act(() => {
       engineRef?.receive({ col: "game", id: "doc", data: { game: "ttt", status: "invited", by: "me", at: 5 }, ts: Date.now() + 1000, by: PARTNER_DEVICE });
     });
-    fireEvent.click(await screen.findByRole("button", { name: /Join game/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Join game/ }, { timeout: 4000 }));
     // The person who invited goes first, so tapping now does nothing.
     fireEvent.click(await screen.findByRole("button", { name: "Play square 1" }, { timeout: 4000 }));
     expect(filled()).toHaveLength(0);
@@ -211,5 +229,47 @@ describe("games", { timeout: 15_000 }, () => {
     expect(within(screen.getByRole("button", { name: /^Square 5,/ })).getByText("💜")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Play square 1" }));
     expect(filled()).toHaveLength(2);
+  });
+
+  it("Connect Four: the inviter starts, then your heart drops into the column you tap", async () => {
+    enterRoom();
+    await renderPage(<Games />, "/games");
+    act(() => {
+      engineRef?.receive({ col: "game", id: "doc", data: { game: "c4", status: "invited", by: "me", at: 5 }, ts: Date.now() + 1000, by: PARTNER_DEVICE });
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /Join game/ }, { timeout: 4000 }));
+    const column4 = await screen.findByRole("button", { name: "Drop in column 4" }, { timeout: 4000 });
+    expect(column4).toBeDisabled();
+    // The partner drops a heart in column 1 (in their words it is "me").
+    const board = Array(42).fill(null);
+    board[35] = "me";
+    act(() => {
+      engineRef?.receive({
+        col: "c4",
+        id: "doc",
+        data: { board, turn: "partner", starter: "me", round: 1, wins: { me: 0, partner: 0 }, draws: 0 },
+        ts: Date.now() + 100_000,
+        by: PARTNER_DEVICE,
+      });
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Drop in column 4" }));
+    expect(within(screen.getByRole("button", { name: "Drop in column 4" })).getByText("💖")).toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: "Drop in column 1" })).getByText("💜")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Drop in column 5" })).toBeDisabled();
+  });
+
+  it("every new game opens: quiz, rock paper scissors, never have I ever", async () => {
+    enterRoom();
+    await renderPage(<Games />, "/games");
+    for (const [game, check] of [
+      ["quiz", /Pick your real answer/],
+      ["rps", /stays hidden until you.ve both picked/],
+      ["nhie", /Never have I ever/],
+    ] as const) {
+      act(() => {
+        engineRef?.receive({ col: "game", id: "doc", data: { game, status: "playing", by: "partner", at: Date.now() }, ts: Date.now() + 1000, by: PARTNER_DEVICE });
+      });
+      expect(await screen.findByText(check, undefined, { timeout: 4000 })).toBeInTheDocument();
+    }
   });
 });

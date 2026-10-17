@@ -140,3 +140,52 @@ test("game invite starts only when the partner joins, and a video call connects"
   await riya.context.close();
   await kabir.context.close();
 });
+
+test("a call still connects when the phones can't reach each other directly (through the server)", async ({ browser }) => {
+  const riya = await createRoom(browser, "Riya");
+  const kabir = await joinRoom(browser, riya.code, "Kabir");
+  await expect(kabir.page).toHaveURL(/\/dashboard$/);
+  await riya.page.getByRole("button", { name: "Enter our space" }).click();
+  // Pretend the networks block a direct line.
+  for (const p of [riya.page, kabir.page]) await p.evaluate(() => localStorage.setItem("usspace:call-path", "relay"));
+
+  await riya.page.goto("/chat");
+  await kabir.page.goto("/chat");
+  await expect(riya.page.getByText("Online now")).toBeVisible();
+  await expect(kabir.page.getByText("Online now")).toBeVisible();
+  await riya.page.getByRole("button", { name: "Video call" }).click();
+  await kabir.page.getByRole("button", { name: "Accept" }).click();
+  for (const p of [riya.page, kabir.page]) await expect(p.getByText("Connected through UsSpace · encrypted")).toBeVisible();
+
+  // Voice goes both ways, and Kabir sees Riya's video.
+  const stats = (p: typeof riya.page) => p.evaluate(() => (window as unknown as { __usspaceCallStats: () => Record<string, number> | null }).__usspaceCallStats());
+  await expect.poll(async () => (await stats(kabir.page))?.audioIn ?? 0, { timeout: 15_000 }).toBeGreaterThan(10);
+  await expect.poll(async () => (await stats(riya.page))?.audioIn ?? 0, { timeout: 15_000 }).toBeGreaterThan(10);
+  await expect
+    .poll(() => kabir.page.getByTestId("relay-video").locator("canvas").evaluate((c: HTMLCanvasElement) => c.width), { timeout: 15_000 })
+    .toBeGreaterThan(0);
+
+  await kabir.page.getByRole("button", { name: "End call" }).click();
+  await expect(riya.page.getByText("Call ended")).toBeVisible();
+  await riya.context.close();
+  await kabir.context.close();
+});
+
+test("a call switches to the server by itself when no direct line works", async ({ browser }) => {
+  const riya = await createRoom(browser, "Riya");
+  const kabir = await joinRoom(browser, riya.code, "Kabir");
+  await expect(kabir.page).toHaveURL(/\/dashboard$/);
+  await riya.page.getByRole("button", { name: "Enter our space" }).click();
+  for (const p of [riya.page, kabir.page]) await p.evaluate(() => localStorage.setItem("usspace:call-path", "no-direct"));
+  await riya.page.goto("/chat");
+  await kabir.page.goto("/chat");
+  await expect(riya.page.getByText("Online now")).toBeVisible();
+  await expect(kabir.page.getByText("Online now")).toBeVisible();
+  await riya.page.getByRole("button", { name: "Voice call" }).click();
+  await kabir.page.getByRole("button", { name: "Accept" }).click();
+  await expect(riya.page.getByText("Connecting…")).toBeVisible();
+  for (const p of [riya.page, kabir.page]) await expect(p.getByText("Connected through UsSpace · encrypted")).toBeVisible({ timeout: 30_000 });
+  await riya.page.getByRole("button", { name: "End call" }).click();
+  await kabir.context.close();
+  await riya.context.close();
+});

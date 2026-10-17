@@ -8,12 +8,19 @@
 //   USSPACE_DATA_DIR  save encrypted rooms to this folder (default: memory only — nothing is written to disk)
 //   ALLOWED_ORIGINS   comma-separated list of sites allowed to connect to /ws (default: same site only)
 //   TRUST_PROXY       set to "1" behind a proxy/load balancer so rate limits use the real client IP
+//
+// Calls on strict mobile networks (optional, free — see server/ice.mjs):
+//   CLOUDFLARE_TURN_KEY_ID + CLOUDFLARE_TURN_API_TOKEN, or TURN_URLS + TURN_USERNAME + TURN_CREDENTIAL
+// Database for closed rooms + the 2-device lock across restarts (optional, free — see server/kv.mjs):
+//   UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
 
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import http from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
+import { createIceProvider } from "./ice.mjs";
+import { createKv } from "./kv.mjs";
 import { listMusic } from "./music.mjs";
 import { createRelay } from "./relay.mjs";
 
@@ -152,7 +159,11 @@ const server = http.createServer((req, res) => {
   else createReadStream(file).pipe(res);
 });
 
+const kv = createKv();
+const ice = createIceProvider();
 const relay = createRelay({
+  kv,
+  ice,
   // Memory only unless you ask for a folder: when a room is closed (or the server restarts) nothing is left behind.
   dataDir: process.env.USSPACE_DATA_DIR || null,
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -165,6 +176,7 @@ server.on("upgrade", (req, socket, head) => {
 
 server.listen(port, host, () => {
   console.log(`[usspace] ready on http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
+  console.log(`[usspace] calls: TURN ${ice.mode === "off" ? "off (direct, or through this server if needed)" : ice.mode} · database: ${kv ? "Upstash" : "off (memory only)"}`);
 });
 
 const shutdown = () => {

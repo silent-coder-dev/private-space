@@ -5,10 +5,15 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SpotlightCard } from "@/components/fx/SpotlightCard";
-import { MemoryMatch, newMemory } from "@/components/games/MemoryMatch";
+import { ConnectFour } from "@/components/games/ConnectFour";
+import { CoupleQuiz } from "@/components/games/CoupleQuiz";
+import { MemoryMatch } from "@/components/games/MemoryMatch";
+import { NeverHaveIEver } from "@/components/games/NeverHaveIEver";
+import { newC4, newMemory, newNhie, newQuiz, newRps, newWyr } from "@/components/games/new-game";
+import { RockPaperScissors } from "@/components/games/RockPaperScissors";
 import { TicTacToe } from "@/components/games/TicTacToe";
 import { TruthOrDare } from "@/components/games/TruthOrDare";
-import { newWyr, WouldYouRather } from "@/components/games/WouldYouRather";
+import { WouldYouRather } from "@/components/games/WouldYouRather";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useRoom } from "@/context/room";
 import { useSpace } from "@/context/space";
@@ -23,6 +28,10 @@ const GAMES: { id: GameId; emoji: string; text: string }[] = [
   { id: "tod", emoji: "🎲", text: "Draw a card. You both see the same truth or dare." },
   { id: "memory", emoji: "🧠", text: "Take turns flipping cards. Find a pair, keep your turn." },
   { id: "wyr", emoji: "🤔", text: "Both pick secretly, then see if you match." },
+  { id: "quiz", emoji: "💘", text: "One answers about themselves, the other guesses. Who knows who best?" },
+  { id: "c4", emoji: "🔴", text: "Drop hearts in turn — four in a row wins." },
+  { id: "rps", emoji: "✂️", text: "Rock, paper, scissors in secret. First to 3 wins the match." },
+  { id: "nhie", emoji: "🙋", text: "Never have I ever… answer honestly, then see each other's answer." },
 ];
 
 const NONE: GameSession | null = null;
@@ -49,6 +58,10 @@ const Games = () => {
     if (game.game === "memory") engine.put("memory", "doc", newMemory("partner"));
     if (game.game === "wyr") engine.put("wyr", "doc", newWyr());
     if (game.game === "tod") engine.put("tod", "doc", null);
+    if (game.game === "c4") engine.put("c4", "doc", newC4("partner"));
+    if (game.game === "rps") engine.put("rps", "doc", newRps());
+    if (game.game === "nhie") engine.put("nhie", "doc", newNhie());
+    if (game.game === "quiz") engine.put("quiz", "doc", newQuiz("partner"));
     setGame({ ...game, status: "playing" });
   };
 
@@ -101,6 +114,10 @@ const Games = () => {
               {game.game === "tod" && <TruthOrDare />}
               {game.game === "memory" && <MemoryMatch />}
               {game.game === "wyr" && <WouldYouRather />}
+              {game.game === "c4" && <ConnectFour />}
+              {game.game === "rps" && <RockPaperScissors />}
+              {game.game === "nhie" && <NeverHaveIEver />}
+              {game.game === "quiz" && <CoupleQuiz />}
             </div>
           </Panel>
         ) : game?.status === "invited" ? (
@@ -138,7 +155,7 @@ const Games = () => {
           </Panel>
         ) : (
           <Panel key="pick">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {GAMES.map((g, i) => (
                 <motion.div key={g.id} initial={{ opacity: 0, y: 20, rotateX: 20 }} animate={{ opacity: 1, y: 0, rotateX: 0 }} transition={{ delay: i * 0.08, ease: EASE_OUT }} style={{ transformPerspective: 1000 }}>
                   <SpotlightCard tilt className="flex h-full flex-col gap-4 p-6">

@@ -12,7 +12,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Home", url: "/dashboard", icon: LayoutDashboard, description: "Your daily overview", group: "Us" },
   { title: "Chat", url: "/chat", icon: MessageCircleHeart, description: "Messages, photos, videos & calls", group: "Us" },
   { title: "Gallery", url: "/gallery", icon: Image, description: "Shared photos + voice chat", group: "Create" },
-  { title: "Canvas", url: "/canvas", icon: Palette, description: "Draw and make cartoons together", group: "Create" },
+  { title: "Canvas", url: "/canvas", icon: Palette, description: "Draw together on a board that grows", group: "Create" },
   { title: "Games", url: "/games", icon: Gamepad2, description: "Invite and play together", group: "Play" },
   { title: "Music", url: "/music", icon: Music, description: "Your songs, in sync", group: "Play" },
 ];

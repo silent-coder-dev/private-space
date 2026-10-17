@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Maximize2, Mic, MicOff, Minimize2, Phone, PhoneOff, SwitchCamera, Video, VideoOff } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { Maximize2, Mic, MicOff, Minimize2, Phone, PhoneOff, ShieldCheck, SwitchCamera, Video, VideoOff, Volume2 } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { InitialAvatar } from "@/components/layout/InitialAvatar";
 import { useSpace } from "@/context/space";
 import { useNow } from "@/hooks/use-now";
@@ -14,6 +14,21 @@ function MediaView({ stream, muted, className, mirror }: { stream: MediaStream |
     if (ref.current && ref.current.srcObject !== stream) ref.current.srcObject = stream;
   }, [stream]);
   return <video ref={ref} autoPlay playsInline muted={muted} className={cn(className, mirror && "-scale-x-100")} />;
+}
+
+/** Your partner's video in a call that goes through the server (drawn picture by picture). */
+function RelayVideo({ canvas }: { canvas: HTMLCanvasElement }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    canvas.className = "h-full w-full object-cover";
+    el.appendChild(canvas);
+    return () => {
+      if (canvas.parentNode === el) el.removeChild(canvas);
+    };
+  }, [canvas]);
+  return <div ref={box} className="absolute inset-0" data-testid="relay-video" />;
 }
 
 function Timer({ since }: { since: number | null }) {
@@ -47,13 +62,27 @@ export function CallOverlay() {
   const call = useCall();
   const { profile } = useSpace();
   const remoteAudio = useRef<HTMLAudioElement>(null);
+  const [needsTap, setNeedsTap] = useState(false);
 
   // The partner's voice always plays here, even when the call window is minimised.
+  // Some phones block sound that didn't start from a tap — then we show a "Tap to hear" button.
   useEffect(() => {
-    if (remoteAudio.current && remoteAudio.current.srcObject !== call.remote) remoteAudio.current.srcObject = call.remote;
+    const el = remoteAudio.current;
+    if (!el) return;
+    if (el.srcObject !== call.remote) el.srcObject = call.remote;
+    if (!call.remote) return setNeedsTap(false);
+    el.play()
+      .then(() => setNeedsTap(false))
+      .catch(() => setNeedsTap(true));
   }, [call.remote]);
 
+  const hear = () => {
+    void remoteAudio.current?.play().then(() => setNeedsTap(false)).catch(() => undefined);
+  };
+
   const video = call.kind === "video";
+  const relayed = call.path === "relay";
+  const showRemoteVideo = video && call.phase === "active" && (relayed ? call.remoteVideo : true);
   const label =
     call.phase === "incoming"
       ? `Incoming ${video ? "video" : "voice"} call…`
@@ -108,9 +137,10 @@ export function CallOverlay() {
             exit={{ opacity: 0, scale: 0.97 }}
             className="fixed inset-0 z-[95] overflow-hidden bg-background"
           >
-            {video && call.phase === "active" ? (
+            {video && call.phase === "active" && relayed && call.relayCanvas && <RelayVideo canvas={call.relayCanvas} />}
+            {video && call.phase === "active" && !relayed ? (
               <MediaView stream={call.remote} muted className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
+            ) : video && call.phase === "active" && call.remoteVideo ? null : (
               <div className="absolute inset-0 gradient-soft">
                 <div className="absolute inset-0 bg-dots opacity-40" />
               </div>
@@ -120,21 +150,44 @@ export function CallOverlay() {
             )}
 
             <div className="relative z-10 flex h-full flex-col items-center justify-between px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-16 text-center">
-              {(!video || call.phase !== "active") && (
-                <div className="space-y-4 [perspective:800px]">
-                  <motion.div animate={{ rotateY: [0, 12, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative mx-auto w-fit">
-                    <span className="absolute inset-0 animate-ripple rounded-full bg-primary/40" />
-                    <span className="absolute inset-0 animate-ripple rounded-full bg-secondary/30 [animation-delay:1.2s]" />
-                    <InitialAvatar name={profile.partner} size="xl" variant="secondary" />
-                  </motion.div>
-                  <p className="font-heading text-3xl font-bold">{profile.partner}</p>
-                  <p className="text-muted-foreground">{label ?? <Timer since={call.startedAt} />}</p>
+              {!showRemoteVideo && (
+                // Centred in the free space, like a phone call screen.
+                <div className="flex flex-1 items-center">
+                  <div className="space-y-4 [perspective:800px]">
+                    <motion.div animate={{ rotateY: [0, 12, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative mx-auto w-fit">
+                      <span className="absolute inset-0 animate-ripple rounded-full bg-primary/40" />
+                      <span className="absolute inset-0 animate-ripple rounded-full bg-secondary/30 [animation-delay:1.2s]" />
+                      <InitialAvatar name={profile.partner} size="xl" variant="secondary" />
+                    </motion.div>
+                    <p className="font-heading text-3xl font-bold">{profile.partner}</p>
+                    <p className="text-muted-foreground">{label ?? <Timer since={call.startedAt} />}</p>
+                    {video && call.phase === "active" && <p className="text-xs text-muted-foreground">{profile.partner}'s camera is off or the network is slow</p>}
+                    {call.phase !== "incoming" && !relayed && (
+                      <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/80">
+                        <ShieldCheck className="h-3.5 w-3.5 text-success" /> End-to-end encrypted
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
-              {video && call.phase === "active" && (
+              {showRemoteVideo && (
                 <p className="glass rounded-full px-4 py-1.5 text-sm">
                   {profile.partner} · <Timer since={call.startedAt} />
                 </p>
+              )}
+              {call.phase === "active" && (relayed || needsTap) && (
+                <div className="flex flex-col items-center gap-2">
+                  {relayed && (
+                    <p className="glass flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-muted-foreground" title="A direct line wasn't possible on this network, so the call goes through UsSpace — still end-to-end encrypted.">
+                      <ShieldCheck className="h-3.5 w-3.5 text-success" /> Connected through UsSpace · encrypted
+                    </p>
+                  )}
+                  {needsTap && (
+                    <button type="button" onClick={hear} className="glass flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold">
+                      <Volume2 className="h-4 w-4 text-primary" /> Tap to hear {profile.partner}
+                    </button>
+                  )}
+                </div>
               )}
 
               {video && call.local && call.phase === "active" && (

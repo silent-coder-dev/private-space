@@ -102,6 +102,25 @@ export function seal(keys: RoomKeys, value: unknown): string {
   return toBase64(out);
 }
 
+/** Encrypt raw bytes (live call audio/video): nonce + ciphertext, no text encoding. */
+export function sealBytes(keys: RoomKeys, plain: Uint8Array): Uint8Array {
+  const nonce = randomBytes(24);
+  const ciphertext = xchacha20poly1305(keys.encKey, nonce, utf8ToBytes(keys.roomId)).encrypt(plain);
+  const out = new Uint8Array(nonce.length + ciphertext.length);
+  out.set(nonce);
+  out.set(ciphertext, nonce.length);
+  return out;
+}
+
+/** Decrypt raw bytes. Returns null if tampered with. */
+export function openBytes(keys: RoomKeys, sealed: Uint8Array): Uint8Array | null {
+  try {
+    return xchacha20poly1305(keys.encKey, sealed.subarray(0, 24), utf8ToBytes(keys.roomId)).decrypt(sealed.subarray(24));
+  } catch {
+    return null;
+  }
+}
+
 /** Decrypt and verify. Returns null if the data was tampered with or uses another room's key. */
 export function open<T = unknown>(keys: RoomKeys, sealed: string): T | null {
   try {

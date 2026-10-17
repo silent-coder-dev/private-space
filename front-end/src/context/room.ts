@@ -16,12 +16,23 @@ export interface RoomContextValue {
   joinRoom: (code: string, name: string) => Promise<void>;
   /** Delete this room's data from this device only. */
   leaveRoom: () => void;
-  /** Close the room for BOTH of you: the server and both phones delete everything. */
-  closeRoom: () => void;
+  /**
+   * Close the room for BOTH of you: the server and both phones delete everything.
+   * Returns false when offline (the server must be told, so the room can never come back).
+   */
+  closeRoom: () => boolean;
   /** Send a live signal to your partner. Returns false if you're offline. */
   signal: (type: SignalType, data?: unknown) => boolean;
   /** Listen to live signals (calls use this). */
   onSignal: (listener: (signal: Signal) => void) => () => void;
+  /** Live call audio/video through the server (encrypted). False = dropped. */
+  sendMedia: (bytes: Uint8Array) => boolean;
+  /** Listen to your partner's live call audio/video. */
+  onMedia: (listener: (bytes: Uint8Array) => void) => () => void;
+  /** Bytes waiting to go out (calls lower their quality when the network is slow). */
+  mediaBacklog: () => number;
+  /** Network routes for calls from the server (STUN + TURN). null when it can't be reached. */
+  iceServers: () => Promise<RTCIceServer[] | null>;
 }
 
 export const RoomContext = createContext<RoomContextValue | null>(null);
@@ -44,4 +55,5 @@ export const ROOM_ERRORS: Record<RoomErrorCode, string> = {
   timeout: "Can't reach the UsSpace server right now. Check your internet and try again.",
   network: "Can't reach the UsSpace server right now. Check your internet and try again.",
   closed: "This room was closed and everything in it was deleted.",
+  busy: "The server is busy right now. Your changes are saved and will be sent soon.",
 };

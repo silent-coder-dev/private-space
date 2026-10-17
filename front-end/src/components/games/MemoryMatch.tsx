@@ -4,21 +4,12 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useSpace } from "@/context/space";
 import { fireFrom } from "@/lib/burst";
-import { MEMORY_SYMBOLS } from "@/lib/content";
-import { shuffle } from "@/lib/games";
 import type { MemoryDoc, Sender } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { swap } from "@/sync/engine";
 import { useSyncedDoc } from "@/sync/hooks";
+import { newMemory } from "./new-game";
 
-export const newMemory = (turn: Sender = "me", round = 1): MemoryDoc => ({
-  deck: shuffle([...MEMORY_SYMBOLS, ...MEMORY_SYMBOLS]),
-  flipped: [],
-  matched: [],
-  turn,
-  points: { me: 0, partner: 0 },
-  round,
-});
 const EMPTY: MemoryDoc = { deck: [], flipped: [], matched: [], turn: "me", points: { me: 0, partner: 0 }, round: 0 };
 
 /** Two-player memory: take turns flipping two cards. A pair scores and keeps your turn. */

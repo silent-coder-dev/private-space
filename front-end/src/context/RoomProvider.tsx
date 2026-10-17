@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { PageLoader } from "@/components/layout/PageLoader";
 import { fireHearts } from "@/lib/burst";
 import { GAME_NAMES } from "@/lib/content";
+import { notify as notifyPhone } from "@/lib/notify";
 import { DEFAULT_ME, DEFAULT_PARTNER } from "@/lib/seed";
 import { clearStore, setStorageScope } from "@/lib/storage";
 import type { ChatMessage, GameSession, MemberDoc } from "@/lib/types";
@@ -53,12 +54,24 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
   liveRef.current = live;
   const typingTimer = useRef<ReturnType<typeof setTimeout>>();
   const signalListeners = useRef(new Set<(s: Signal) => void>());
+  const mediaListeners = useRef(new Set<(bytes: Uint8Array) => void>());
   const presenceRef = useRef(presence);
   presenceRef.current = presence;
   const navigate = useNavigate();
   const location = useLocation();
   const pathRef = useRef(location.pathname);
   pathRef.current = location.pathname;
+
+  // Tapping a phone notification opens the right page.
+  useEffect(() => {
+    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    if (!sw) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.t === "open" && typeof e.data.url === "string" && e.data.url.startsWith("/")) navigate(e.data.url);
+    };
+    sw.addEventListener("message", onMessage);
+    return () => sw.removeEventListener("message", onMessage);
+  }, [navigate]);
 
   // Load the saved room (from IndexedDB) before any private page renders.
   useEffect(() => {
@@ -90,6 +103,14 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
       if (put.data === null || !clientRef.current?.live) return;
       const name = partnerName(engine);
       const where = pathRef.current;
+      // App in the background: a phone notification (never the message text — the lock screen stays private).
+      if (document.visibilityState === "hidden") {
+        if (put.col === "messages" && created) void notifyPhone(`💬 ${name}`, "New message", { tag: "message", url: "/chat" });
+        else if (put.col === "photos" && created) void notifyPhone(`🖼️ ${name}`, "Added a photo to your gallery", { tag: "photo", url: "/gallery" });
+        else if (put.col === "game" && (put.data as GameSession).status === "invited" && (put.data as GameSession).by === "partner")
+          void notifyPhone(`🎮 ${name} invites you to play`, GAME_NAMES[(put.data as GameSession).game] ?? "a game", { tag: "game", url: "/games?join=1" });
+        else if (put.col === "gview") void notifyPhone(`👀 ${name}`, "Wants to show you a photo", { tag: "gview", url: "/gallery?look=1" });
+      }
       if (put.col === "messages" && created && where !== "/chat") {
         const m = put.data as ChatMessage;
         toast(`💬 ${name}`, {
@@ -124,6 +145,7 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
     } else if (signal.type === "heart") {
       fireHearts({ count: 30 });
       toast(`💖 ${name} is missing you`, { description: "Send one back?" });
+      void notifyPhone(`💖 ${name} is missing you`, "Tap to send one back", { tag: "heart" });
     } else if (signal.type === "nudge") {
       fireHearts({ count: 18, emojis: ["💭", "💗", "✨"] });
       toast(`💭 ${name} is thinking of you`);
@@ -159,6 +181,7 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
             }
           },
           signal: (s) => handleSignal(engine, s),
+          media: (bytes) => mediaListeners.current.forEach((listener) => listener(bytes)),
           ready: () => {
             if (settled) return;
             settled = true;
@@ -279,17 +302,21 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
     window.location.assign("/");
   }, []);
 
-  const closeRoom = useCallback(async () => {
-    clientRef.current?.closeRoom();
-    // If we're offline the server can't be told — still wipe here; the room stays closed for us.
-    setTimeout(() => void onClosed(), 400);
-  }, [onClosed]);
+  // The server answers "closed" to both phones, and each one wipes itself (see onClosed).
+  const closeRoom = useCallback(() => clientRef.current?.closeRoom() ?? false, []);
 
   const signal = useCallback((type: Signal["type"], data?: unknown) => clientRef.current?.sendSignal(type, data) ?? false, []);
   const onSignal = useCallback((listener: (s: Signal) => void) => {
     signalListeners.current.add(listener);
     return () => void signalListeners.current.delete(listener);
   }, []);
+  const sendMedia = useCallback((bytes: Uint8Array) => clientRef.current?.sendMedia(bytes) ?? false, []);
+  const onMedia = useCallback((listener: (bytes: Uint8Array) => void) => {
+    mediaListeners.current.add(listener);
+    return () => void mediaListeners.current.delete(listener);
+  }, []);
+  const mediaBacklog = useCallback(() => clientRef.current?.backlog ?? 0, []);
+  const iceServers = useCallback(() => clientRef.current?.iceServers() ?? Promise.resolve(null), []);
 
   const value = useMemo<RoomContextValue>(
     () => ({
@@ -302,11 +329,15 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
       createRoom,
       joinRoom,
       leaveRoom: () => void leaveRoom(),
-      closeRoom: () => void closeRoom(),
+      closeRoom,
       signal,
       onSignal,
+      sendMedia,
+      onMedia,
+      mediaBacklog,
+      iceServers,
     }),
-    [live, status, presence, partnerTyping, problem, createRoom, joinRoom, leaveRoom, closeRoom, signal, onSignal],
+    [live, status, presence, partnerTyping, problem, createRoom, joinRoom, leaveRoom, closeRoom, signal, onSignal, sendMedia, onMedia, mediaBacklog, iceServers],
   );
 
   if (!hydrated) return <PageLoader />;

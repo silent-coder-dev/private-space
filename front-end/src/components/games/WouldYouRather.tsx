@@ -3,30 +3,18 @@ import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSpace } from "@/context/space";
 import { WOULD_YOU_RATHER } from "@/lib/content";
+import { seededOrder } from "@/lib/games";
 import type { WyrDoc } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useSyncedDoc } from "@/sync/hooks";
 
-export const newWyr = (index = 0, seed = Math.floor(Math.random() * 1e9)): WyrDoc => ({ index, seed, picks: { me: null, partner: null } });
 const EMPTY: WyrDoc = { index: 0, seed: 1, picks: { me: null, partner: null } };
-
-/** Same shuffled order on both phones, worked out from a shared seed. */
-const orderFor = (seed: number) => {
-  const order = WOULD_YOU_RATHER.map((_, i) => i);
-  let s = seed;
-  for (let i = order.length - 1; i > 0; i--) {
-    s = (s * 1103515245 + 12345) % 2147483648;
-    const j = s % (i + 1);
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  return order;
-};
 
 /** Both of you pick secretly; answers are shown when both have chosen. */
 export function WouldYouRather() {
   const { profile } = useSpace();
   const [game, setGame] = useSyncedDoc<WyrDoc>("wyr", "doc", EMPTY);
-  const order = orderFor(game.seed);
+  const order = seededOrder(WOULD_YOU_RATHER.length, game.seed);
   const pair = WOULD_YOU_RATHER[order[game.index % order.length]];
   const mine = game.picks.me;
   const theirs = game.picks.partner;

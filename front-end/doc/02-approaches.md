@@ -9,10 +9,12 @@ This page explains **how** UsSpace was made and **why** each choice was made, in
 - [2.3 Architecture](#23-architecture)
 - [2.4 Security and privacy](#24-security-and-privacy)
 - [2.5 Real-time sync](#25-real-time-sync)
-- [2.6 Calls, camera and music](#26-calls-camera-and-music)
-- [2.7 How each room works](#27-how-each-room-works)
-- [2.8 Quality: testing and the bugs we fixed](#28-quality-testing-and-the-bugs-we-fixed)
-- [2.9 What comes next](#29-what-comes-next)
+- [2.6 Calls](#26-calls)
+- [2.7 Camera, canvas, games, music and notifications](#27-camera-canvas-games-music-and-notifications)
+- [2.8 The optional free database](#28-the-optional-free-database)
+- [2.9 How each room works](#29-how-each-room-works)
+- [2.10 Quality: testing and the bugs we fixed](#210-quality-testing-and-the-bugs-we-fixed)
+- [2.11 What comes next](#211-what-comes-next)
 
 ---
 
@@ -37,7 +39,7 @@ flowchart LR
 **Rules we kept:**
 
 1. **Trust, but always check.** Every change is checked with `typecheck`, `lint`, unit tests, real-browser tests and a production build.
-2. **Test like a real couple.** Live features are tested with **two browsers at once**, including a real video call with fake cameras.
+2. **Test like a real couple.** Live features are tested with **two browsers at once**, including real video calls, both phone-to-phone and through the server.
 3. **Small, clear pieces.** Each feature lives in its own file or folder.
 4. **The website stays about love.** The site never talks about how it was built.
 
@@ -49,20 +51,22 @@ flowchart LR
 | --- | --- | --- |
 | **React 18 + TypeScript + Vite** | The app and its build tool | Fast, popular, and catches mistakes early |
 | **Tailwind + shadcn/ui + Radix** | Styling + accessible parts | Quick to design, good for keyboards and screen readers |
-| **Framer Motion + CSS 3D** | Animation | 3D page turns, tilting cards, the layered 3D heart |
-| **Node.js + `ws`** | The tiny "relay" server | Real-time messages with almost no code |
+| **Framer Motion + CSS 3D** | Animation | 3D page turns, tilting cards, the layered 3D heart, falling Connect Four hearts |
+| **Node.js + `ws`** | The small "relay" server | Real-time messages with almost no code |
 | **@noble/ciphers + @noble/hashes** | Audited cryptography in pure JavaScript | Encryption + PIN hashing that work everywhere |
 | **WebRTC** (built into browsers) | Voice and video calls | Phone to phone, encrypted by the browser, free |
+| **Web Audio (AudioWorklet)** | Sound processing in the browser | The backup call path when phones can't connect directly |
 | **IndexedDB** (built into browsers) | Storage on each phone | Big enough for photos and videos |
 | **MediaRecorder / getUserMedia** | Camera photos and video clips | Built into browsers |
-| **Media Session API** | Lock-screen and headphone music controls | Built into phones |
+| **Service worker + Notifications** | Background alerts, "install on home screen" | Calls and messages reach you when the app is in the background |
+| **Upstash Redis** (optional, free) | A tiny database over HTTPS | Remembers closed rooms and each room's two devices across restarts |
 | **Vitest + Playwright** | Unit, page, server and two-browser tests | Checks everything, including calls |
 
 ---
 
 ## 2.3 Architecture
 
-Everything lives in `front-end/`: the **website** (`src/`) and the **relay** (`server/`).
+Everything lives in `front-end/`: the **website** (`src/`) and the **server** (`server/`).
 
 ```mermaid
 flowchart LR
@@ -71,27 +75,32 @@ flowchart LR
       EA --> LA[("IndexedDB copy")]
       EA --> CA["Sync client<br/>🔐 encrypt / decrypt"]
     end
-    subgraph Server["🛰️ Relay (memory only)"]
-      R["Rooms · 2-device lock<br/>rate limits · close room"]
+    subgraph Server["🛰️ UsSpace server (memory only)"]
+      R["Relay: rooms · 2-device lock<br/>limits · close room · call backup"]
+      T["TURN routes (optional)"]
     end
     subgraph PhoneB["📱 Kabir's phone"]
       CB["Sync client<br/>🔐 encrypt / decrypt"] --> EB["Sync engine"]
       EB --> LB[("IndexedDB copy")]
       EB --> UIB["Pages"]
     end
+    DB[("Upstash (optional)<br/>closed rooms + device lock")]
     CA <-- "WebSocket /ws<br/>locked boxes only" --> R
     R <-- "WebSocket /ws" --> CB
+    R -.-> DB
     PhoneA <-. "📞 WebRTC call<br/>phone to phone" .-> PhoneB
 ```
 
 | Part | What it does | Where |
 | --- | --- | --- |
-| **Room provider** | Create, join, leave and close the room. Connection status, partner presence, typing, hearts, pop-ups | `src/context/RoomProvider.tsx` |
-| **Sync engine + client** | Shared data (newest wins), outbox, catch-up, encryption | `src/sync/` |
-| **Call provider** | Ringing, answering, WebRTC connection, call screen | `src/call/` |
+| **Room provider** | Create, join, leave and close the room. Connection status, partner presence, typing, hearts, pop-ups, notifications | `src/context/RoomProvider.tsx` |
+| **Sync engine + client** | Shared data (newest wins), outbox, catch-up, encryption, "I have it" receipts | `src/sync/` |
+| **Call provider** | Ringing, WebRTC, repairing a dropped line, switching to the backup path | `src/call/` |
 | **Music provider** | One player for the whole app, synced timeline, lock-screen controls | `src/music/` |
 | **App lock** | Optional PIN, privacy blur | `src/components/layout/AppLock.tsx` |
-| **Relay** | Rooms, auth check, 2-device lock, rate limits, close room | `server/relay.mjs` |
+| **Relay** | Rooms, auth check, 2-device lock, rate limits, close room, call frames | `server/relay.mjs` |
+| **Room store** | Encrypted events in memory, forgotten once both phones have them | `server/store.mjs` |
+| **Call routes / database** | TURN credentials; closed rooms + device lock | `server/ice.mjs`, `server/kv.mjs` |
 | **Production server** | Website + relay + music files, security headers, seekable audio | `server/index.mjs` |
 
 ---
@@ -106,35 +115,37 @@ The code is 16 random characters (80 bits), made **on your phone** and **never s
 | --- | --- | --- |
 | **Room id** | Which room | The server (it can't turn it back into the code) |
 | **Auth key** | Proving you know the code | The server stores only its SHA-256 hash |
-| **Encryption key** | Locking every message, photo, video, drawing, name… (XChaCha20-Poly1305) | **Only your two phones** |
+| **Encryption key** | Locking every message, photo, video, drawing, name, call signal and backup-call frame (XChaCha20-Poly1305) | **Only your two phones** |
 | **Item key** | Anonymous labels for items | The server sees random-looking labels |
 
 ### Protections
 
 | Protection | How it works |
 | --- | --- |
-| **2-device lock** | A room accepts exactly two devices. A third is refused, even with the right code. |
-| **Close room = delete everything** | The server deletes the room right away, tells both phones to wipe their copy (IndexedDB + local storage), and remembers the room as closed for 30 days, so an offline phone can't bring it back. |
-| **Memory-only server** | Rooms are kept in memory unless you set `USSPACE_DATA_DIR`. A restart leaves nothing on disk. |
+| **2-device lock** | A room accepts exactly two devices. A third is refused, even with the right code. With the database on, the lock also survives server restarts. |
+| **Close room = delete everything** | You must be online (the server has to be told). The server deletes the room, records "closed" (in memory and, if set up, in the database), and tells both phones to wipe their copy (IndexedDB + local storage). A phone that was offline wipes itself the moment it reconnects, and nobody can ever re-create a closed room. |
+| **The server forgets** | Rooms live in memory only (unless you set `USSPACE_DATA_DIR`). Each phone says "I've safely saved up to message N"; once **both** have, the server drops those messages. It only holds what's still on its way. |
+| **Memory limits** | Max 80 MB waiting per room and 320 MB for the whole server, so one room can't fill a small free server. |
 | **PIN lock** | An optional 4–8 digit PIN per phone, hashed with PBKDF2-SHA256 (150 000 rounds). Asked on open and after 30 seconds in the background. 5 wrong tries → wait 30 seconds. |
 | **Privacy blur** | The app blurs itself when it goes to the background (app switcher, screen sharing). |
-| **Private calls** | Call set-up messages travel encrypted through the room. The audio and video go directly phone-to-phone (WebRTC uses DTLS-SRTP encryption). |
+| **Private notifications** | Notifications say *who* (e.g. "💬 Kabir — New message") but never *what*. |
+| **Private calls** | Call set-up travels encrypted through the room. Direct audio/video use WebRTC's DTLS-SRTP encryption. The backup path is sealed with your room key, so the server only passes along bytes it can't read. |
+| **TURN keys stay on the server** | TURN credentials are handed out only to phones that are in a room. |
 | **Anti-guessing** | Wrong codes use up "tries" per IP (15, then 1 every 5 seconds). A room locks for a while after 10 wrong tries. Correct reconnects are free. |
-| **Limits** | Events up to 4 MB (photos and short videos), signals up to 64 KB, message rate limits, max windows per room, 60 MB per room. |
-| **Website headers** | Strict Content-Security-Policy (including `media-src`), no framing, no-sniff, no referrer, and `Permissions-Policy` allowing the camera and mic **only for this site**. |
+| **Website headers** | Strict Content-Security-Policy, no framing, no-sniff, no referrer, and `Permissions-Policy` allowing camera and mic **only for this site**. |
 
 ### Honest limits
 
 - The PIN only locks the screen; the data saved on the phone is not encrypted with the PIN. Lock your phone too.
-- Some strict mobile networks block direct calls. A **TURN** server fixes this (optional, see the README).
-- Photos you **save** to your phone, or anything you screenshot, leave the app.
-- The QR / invite link carries the code after a `#` (never sent to any server), but whoever receives it can read it.
+- Photos and videos you **save** to your phone, or anything you screenshot, leave the app.
+- A call can only ring while UsSpace is open, or in the background with notifications on (when the app is fully closed, a phone can't be woken up without push messages; see "What comes next").
+- Without the database, a server restart forgets the "closed" note, so a phone that was offline during the close keeps its copy. Add the free database to close that gap.
 
 ---
 
 ## 2.5 Real-time sync
 
-Everything shared is a small **item** (one message, one photo, one stroke, the music player, the game…). Every change is a **put**: the newest version of one item.
+Everything shared is a small **item** (one message, one photo, one stroke, the music player, a game…). Every change is a **put**: the newest version of one item.
 
 | Rule | Why |
 | --- | --- |
@@ -142,43 +153,77 @@ Everything shared is a small **item** (one message, one photo, one stroke, the m
 | **Deletes are remembered** (60 days) | Old copies can't bring deleted things back. |
 | **Written in the author's words**, so "me" becomes "partner" on the other phone | Pages can simply say "me" and "partner". |
 | **Optimistic + outbox** | Your change shows instantly and waits (saved) until the server confirms. |
-| **Catch-up by number** | Things sent while you were offline arrive when you're back. |
-| **Saved one item at a time in IndexedDB** | Sending a photo doesn't re-save the whole chat. |
-| **Saved all-or-nothing** | Items, the outbox and "how far I've caught up" are saved in one IndexedDB transaction, so a phone never thinks it has a message it didn't store. |
+| **Saved all-or-nothing in IndexedDB** | Items, the outbox and "how far I've caught up" are saved in one step, so a phone never thinks it has a message it didn't store. |
+| **"I have it" receipts** | After saving, a phone tells the server how far it got. When both phones have an event, the server forgets it. |
+| **Room "epochs"** | Each time the server creates a room it gives it a new random epoch. If a phone sees a different epoch, the server lost the room (restart): the phone downloads everything again and re-uploads what it has, so nothing is lost. |
+| **Paced uploads with retry** | Up to 20 uploads at a time; anything the server can't take right now (busy, rate limit) is tried again a little later. |
+| **Resync for a new phone** | If a new phone takes a free seat after the server has already forgotten old messages, the server asks the other phone to send everything again. |
 | **Signals** (typing, hearts, call messages) | Sent live, never stored. |
-| **Self-healing** | If the server lost a room (restart), the first phone back re-creates it from its copy, unless the room was closed. |
 
 ---
 
-## 2.6 Calls, camera and music
+## 2.6 Calls
+
+A call has three layers, so it works on every network:
+
+| Layer | What happens |
+| --- | --- |
+| **1. Direct (WebRTC)** | Ring → accept → offer → answer, all as encrypted room signals. Network routes ("ICE candidates") are sent **as soon as they're found** instead of waiting. Routes come from the server: free STUN, plus TURN when it's set up. |
+| **2. Repair** | If the line drops (e.g. Wi-Fi → mobile data), the caller **restarts the connection** once. |
+| **3. Backup through the server** | If no direct line works within 15 seconds, both phones switch to the **UsSpace server path**: voice as 16 kHz μ-law (~130 kbit/s) and video as small JPEG pictures (~8 per second, 360 px), all sealed with the room key. Frames are dropped, never queued, when the network is slow, and never stored. The call screen says "Connected through UsSpace · encrypted". |
+
+Extra details:
+
+- **TURN (optional):** set `CLOUDFLARE_TURN_KEY_ID` + `CLOUDFLARE_TURN_API_TOKEN` (Cloudflare: the first 1,000 GB each month are free), or `TURN_URLS` + `TURN_USERNAME` + `TURN_CREDENTIAL` for any TURN service. It's a server setting, so no rebuild is needed. With TURN, almost every call stays direct and in full quality.
+- **Sound that really plays:** the partner's audio is started explicitly. If a phone blocks it, a "Tap to hear Kabir" button appears.
+- **Calling at the same time:** one phone automatically answers the other call.
+- **Busy, declined, missed:** clear messages, plus a "Missed call" notification.
+- **Minimise:** the call becomes a small floating bar, so you can keep talking while you browse the gallery.
+
+---
+
+## 2.7 Camera, canvas, games, music and notifications
 
 | Feature | Approach |
 | --- | --- |
-| **Calls** | WebRTC. Ring → accept → offer → answer, all as encrypted room signals. All network routes are gathered first and sent in one message. Free Google STUN servers; optional TURN through `VITE_TURN_*`. If you both call at the same moment, one phone automatically answers the other. The call screen can be minimised to a small bar so you can keep talking while you browse the gallery. |
-| **Camera** | `getUserMedia` for a live preview. Photos become JPEG (max 1280 px). Videos are recorded with `MediaRecorder` (max 20 s, ~600 kbps, max 2.5 MB). |
-| **Canvas** | Strokes and stickers are shared items with coordinates from 0 to 1000, so every screen size matches. Three stacked layers: paper + photos, ink (the eraser only rubs out ink), and your live stroke. The **cartoon filter** flattens colours into bands and draws dark outlines (Sobel edges). |
-| **Music** | The server lists `public/music` at `/music/manifest.json`. **One player for the whole app** (it keeps playing on every page), controlled from the Music page or the 🎵 button in the top bar, with lock-screen and headphone controls (Media Session). Both phones play their own copy of the file, kept in step by a shared timeline `{song, playing, position, time}`. The server answers partial (Range) requests, so seeking is instant. |
-| **Games** | A shared `game` item: *invited → playing*. Your partner gets a pop-up anywhere in the app. All 4 games are two-player, and turns are enforced. |
-| **3D UI** | A CSS 3D heart made of 16 layers, 3D page turns (rotateX), tilting spotlight cards, 3D-pressed buttons, and flip effects in games and the gallery. Heavy effects pause for people who prefer less motion. |
+| **Camera** | `getUserMedia` for a live preview. Photos become JPEG (max 1280 px). Videos are recorded with `MediaRecorder` at ~450 kbit/s, **up to 2 minutes** (max 8 MB; recording stops itself just before the limit). Picked videos can also be up to 8 MB. |
+| **Canvas** | Strokes and stickers are shared items measured in **units**: the board is always 1000 units wide and its **height grows** with the drawing (from 750 up to 5000 units), always keeping empty space below. Old drawings are converted automatically. Three stacked layers: paper + photos, ink (the eraser only rubs out ink), and your live stroke. A **✋ scroll tool** lets you move around a long board on a phone, and the toolbar stays at the top while you scroll. |
+| **Games** | A shared `game` item: *invited → playing*. Your partner gets a pop-up (or notification) anywhere. All 8 games are two-player and keep turns. Secret answers (Rock Paper Scissors, Never Have I Ever, Would You Rather, the quiz) are revealed only when both have answered. Connect Four checks four in a row across, down and both diagonals. Questions come in the **same shuffled order on both phones** from a shared seed. |
+| **Music** | The server lists `public/music` at `/music/manifest.json`. **One player for the whole app**, controlled from the Music page or the 🎵 button, with lock-screen and headphone controls. Both phones play their own copy, kept in step by a shared timeline. Songs stream in small parts only while playing. |
+| **Notifications + install** | A web app manifest and icons let you **add UsSpace to your home screen**. A small service worker shows notifications while the app is in the background and opens the right page when you tap one. It caches nothing, so you always get the newest version. |
+| **3D UI** | A CSS 3D heart made of 16 layers, 3D page turns, tilting spotlight cards, flipping game cards and falling Connect Four hearts. Heavy effects calm down for people who prefer less motion. |
 
 ---
 
-## 2.7 How each room works
+## 2.8 The optional free database
+
+UsSpace works without any database. Adding the free one ([Upstash Redis](https://upstash.com), no credit card) fixes the two things that a memory-only free server can't remember after a restart:
+
+| Stored record | Why | Deleted when |
+| --- | --- | --- |
+| `usspace:closed:<room id>` | So a closed room can **never come back**, even if a phone was offline during the close. | After 180 days |
+| `usspace:room:<room id>` → the auth hash and **two device ids** | So the **2-device lock** survives restarts, and nobody can slip in while the server is empty. | When the room is closed or both people leave (or after 90 days without use) |
+
+**Never stored:** messages, photos, videos, drawings, names, songs or anything else you share. The database is only checked when a room isn't already in memory, so it stays well inside the free plan (500,000 commands a month).
+
+---
+
+## 2.9 How each room works
 
 | Room | How it works (simple) |
 | --- | --- |
 | **Start** | *Create*: name + "together since" → a code is made on your phone → Copy / Share / QR. *Join*: code + name → you're in, and the room locks. |
 | **Home** | Days together, the 3D heart, anniversary countdown, mood (shared live), love note of the day, "I'm missing you", video and voice call buttons, and live cards for every room. |
-| **Chat** | Live messages with photos, videos (camera or gallery), emoji, reactions, typing and seen ticks. Long chats show the newest 80 messages first. Call buttons sit in the header. |
-| **Gallery** | Upload many photos at once (shrunk to 1600 px). Masonry grid with 3D tilt, a full-screen viewer with swipe, "Show Kabir" (opens it on the other phone), save, delete with undo, and a voice-chat button. |
-| **Canvas** | Draw, use neon, erase, place stickers, add photos with the cartoon filter, undo your own strokes, clear for both (with a warning), save as PNG. |
-| **Games** | Choose a game → invite → your partner joins → play. "End game" goes back to the list. |
-| **Music** | Your 61 songs (or however many you add), search, a spinning record, shared play / pause / seek / next / shuffle / repeat, and volume per phone. |
-| **Settings** | Your name, the shared "together since" date, the secret code (hidden, reveal, copy), PIN lock, **Close room & delete everything**, or leave on this phone only. |
+| **Chat** | Live messages with photos, videos (camera or gallery), emoji, reactions, typing and seen ticks. It opens at the newest message and stays there while photos load. Scroll up and a "Latest messages" button takes you back down. |
+| **Gallery** | Upload many photos at once (shrunk to 1600 px). Masonry grid with 3D tilt, full-screen viewer with swipe, "Show Kabir", save, delete with undo, and a voice-chat button. |
+| **Canvas** | Draw, use neon, erase, place stickers, add photos, undo your own strokes, clear for both (with a warning), save the whole board as PNG. It grows as you draw; "More space" adds room by hand. |
+| **Games** | Choose one of 8 games → invite → your partner joins → play. "End game" goes back to the list. |
+| **Music** | Your songs, search, a spinning record, shared play / pause / seek / next / shuffle / repeat, and volume per phone. |
+| **Settings** | Your name, the shared date, the secret code (hidden, reveal, copy), notifications, PIN lock, **Close room & delete everything**, or leave on this phone only. |
 
 ---
 
-## 2.8 Quality: testing and the bugs we fixed
+## 2.10 Quality: testing and the bugs we fixed
 
 ### Checks (inside `front-end/`)
 
@@ -186,41 +231,37 @@ Everything shared is a small **item** (one message, one photo, one stroke, the m
 | --- | --- | --- |
 | `npm run typecheck` | Types | ✅ |
 | `npm run lint` | Code rules (app + server) | ✅ 0 errors (only warnings in generated UI files) |
-| `npm test` | **79 tests**: encryption, sync engine (incl. safe saving), relay server, dates, games, storage, every page, game invites | ✅ |
-| `npm run test:e2e` | **12 real-browser tests** (6 × desktop + phone): create/join, live chat, wrong code + full room, every room opens, **game invite + a real video call** | ✅ |
+| `npm test` | **96 tests**: encryption, sync engine (incl. safe saving), relay server (incl. forgetting delivered messages, epochs, resync, call frames, TURN, the database across restarts, the memory cap), dates, all game rules, call voice encoding, storage, every page, game invites, the growing canvas | ✅ |
+| `npm run test:e2e` | **16 real-browser tests** (8 × desktop + phone): create/join, live chat, wrong code + full room, every room opens, game invite, **a video call phone to phone, a call through the server (voice both ways + video) and the automatic switch when no direct line works** | ✅ |
 | `npm run build` / `npm start` | Production build and server (security headers, gzip, seekable music, health check) | ✅ |
-
-We also checked the music with **two browsers** and the real song folder: 61 songs listed, search works, it plays, it keeps playing on other pages, the partner sees "Now playing", and pause stops it for both.
 
 ### Bugs fixed (highlights)
 
 | Round | Bug | Fix |
 | --- | --- | --- |
-| 1 | Empty page for unknown links, stuck countdowns, wrong days (UTC), always-locked letters, unreachable pages on phones, no tic-tac-toe winner, nothing saved, builder branding | Fixed in the redesign (26 fixes) |
+| 1 | Empty page for unknown links, stuck countdowns, wrong days (UTC), unreachable pages on phones, no tic-tac-toe winner, nothing saved, builder branding | Fixed in the redesign (26 fixes) |
 | 2 | Fake demo replies, always-"seen" ticks, a guessing limit that blocked correct reconnects, "Happy anniversary" on day one, screen-reader gaps | Real partner messages, real ticks, fair limits, correct anniversary, labels |
-| 3 | A glow sat **on top of the Accept call button**, so calls couldn't be answered | The button now sits above the glow |
-| 3 | Call buttons **moved on hover**, which made them hard to tap | They stay still and give feedback on press |
-| 3 | **Music stopped when you left the Music page** | One player for the whole app + 🎵 controls in the top bar |
-| 3 | The server sent the **whole song** when only part was asked for, which made seeking slow | Proper partial (206) answers |
-| 3 | localStorage (≈5 MB) was too small for photos and videos | IndexedDB, saved one item at a time |
-| 3 | If the app closed within ~0.3 s of a message arriving, the phone could **lose that message for good** (it saved "I have message N" before saving the message) | The message, the outbox and "I have message N" are now saved **together in one step**, also when the app goes to the background |
-| 3 | Every app open **downloaded a whole song** even when nothing was playing (wasted phone data) | Only the song length is loaded until you press play |
-| 3 | Typing right after opening the app didn't show "typing…" to your partner | The typing signal retries until it's really sent |
-| 3 | Gallery photo cards had an **empty strip under every photo** (the hover caption took up space) | The caption now sits on top of the photo |
-| 3 | On phones, the new 🎵 button **pushed the profile button off the screen** | Narrow phones show just the heart logo in the top bar |
-| 3 | The landing page still talked about **plans, letters and timelines** that no longer exist | New text, icons and live demos for calls, gallery, canvas, close room and hearts |
-| 3 | Double-clicking a message to ❤️ it also **selected a word** | The selection is cleared |
+| 3 | A glow sat on top of the Accept call button; call buttons moved on hover | Buttons sit above the glow and stay still |
+| 3 | Music stopped when you left the Music page; every app open downloaded a whole song | One player for the whole app; songs stream only while playing |
+| 3 | A message that arrived just before the app closed could be lost for good | Items and "caught up to N" are saved together, in one step |
+| 4 | **Calls never connected between different networks** (most mobile data), and stayed on "Connecting…" forever | Routes sent as found, TURN support, line repair, and the automatic backup path through the server |
+| 4 | A connected call could be **silent** on phones that block autoplay | The audio is started explicitly, with a "Tap to hear" button |
+| 4 | After a server restart, a big re-upload hit the rate limit and the rejected messages were **never retried** | Paced uploads; anything rejected is retried |
+| 4 | After a restart, a phone could miss messages (the old "who has more" guess was wrong) | Room epochs: a changed epoch means "download and re-upload everything" |
+| 4 | **Closing the room while offline** only wiped your phone; the room lived on for your partner | Closing now needs a connection, and is confirmed by the server |
+| 4 | A server restart forgot that a room was closed, so an offline phone could bring it back | The optional database remembers closed rooms |
+| 4 | The server kept every photo and video in memory forever (a risk on a 512 MB free server) | It forgets what both phones have, with per-room and total memory caps |
+| 4 | The chat could open half-way up when photos loaded late | Pinned to the newest message while things load |
 
 ---
 
-## 2.9 What comes next
+## 2.11 What comes next
 
 | Idea | Why |
 | --- | --- |
-| Install as an app (PWA) + push notifications | "💖 Riya is missing you" even when the app is closed |
-| A built-in free TURN option | Calls on every mobile network |
-| Encrypt the phone's copy with the PIN | Stronger protection if someone unlocks the phone |
+| Push notifications (Web Push) | Ring a phone even when UsSpace is fully closed |
 | Voice notes in chat | Quick and sweet |
+| Encrypt the phone's copy with the PIN | Stronger protection if someone unlocks the phone |
 | Light theme | A soft "morning" look |
 
 **Back:** [← 1 · Problem & Solution](01-problem-and-solution.md) · **Next:** [3 · Design →](03-design.md)
