@@ -4,6 +4,9 @@ export type Sender = "me" | "partner";
 export interface Profile {
   me: string;
   partner: string;
+  /** Profile photos (small JPEG data URLs), shared end-to-end encrypted. */
+  myPhoto?: string;
+  partnerPhoto?: string;
   /** The day you got together, as "yyyy-mm-dd". */
   since: string;
   mood: string;
@@ -20,6 +23,8 @@ export interface MemberDoc {
   mood: string;
   status: string;
   away: boolean;
+  /** A small square profile photo (JPEG data URL). Kept on the two phones; deleted with the room. */
+  photo?: string;
 }
 
 /** Details the two of you share. */
@@ -185,4 +190,21 @@ export interface QuizDoc {
   answer: number | null;
   guess: number | null;
   points: { me: number; partner: number };
+}
+
+/** Each person's answers to the question of the day: date ("yyyy-mm-dd", UTC) → answer. */
+export interface DailyDoc {
+  answers: Record<string, { text: string; at: number }>;
+}
+
+/** "Next time together": a shared countdown. */
+export interface MeetDoc {
+  at: number | null;
+  label: string;
+}
+
+/** A short note one of you leaves on the other's Home screen. */
+export interface NoteDoc {
+  text: string;
+  at: number;
 }

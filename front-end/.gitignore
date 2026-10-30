@@ -29,3 +29,6 @@ playwright-report
 
 # Encrypted room data saved by the local relay
 .usspace-data
+
+# Claude's private working notes (kept local, never pushed)
+doc/CLAUDE.md

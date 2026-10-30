@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
+import { Heart, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -14,6 +14,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { UserAvatar } from "@/components/layout/InitialAvatar";
 import { useSpace } from "@/context/space";
 import { NAV_GROUPS, NAV_ITEMS } from "@/lib/nav";
 import { SPRING } from "@/lib/motion";
@@ -23,7 +24,7 @@ import { cn } from "@/lib/utils";
 export function AppSidebar() {
   const { pathname } = useLocation();
   const { state, isMobile, setOpenMobile } = useSidebar();
-  const { profile } = useSpace();
+  const { profile, setLogoutOpen } = useSpace();
   const collapsed = state === "collapsed" && !isMobile;
 
   const today = new Date();
@@ -90,14 +91,26 @@ export function AppSidebar() {
 
       <SidebarFooter className="pb-4">
         {collapsed ? (
-          <div className="mx-auto grid h-8 w-8 place-items-center rounded-lg bg-primary/10" title={`${daysTogether} days together`}>
-            <Heart className="h-4 w-4 fill-primary text-primary" />
+          <div className="flex flex-col items-center gap-2">
+            <Link to="/profile" onClick={closeOnMobile} aria-label="Your profile" title={`${daysTogether} days together`}>
+              <UserAvatar who="me" size="sm" />
+            </Link>
+            <button type="button" onClick={() => setLogoutOpen(true)} aria-label="Log out" title="Log out" className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-white/5 hover:text-destructive">
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         ) : (
-          <div className="glass-card space-y-2 p-3.5">
-            <p className="text-xs text-muted-foreground">
-              {profile.me} & {profile.partner}
-            </p>
+          <div className="glass-card space-y-2.5 p-3.5">
+            <Link to="/profile" onClick={closeOnMobile} className="-m-1 flex items-center gap-2.5 rounded-xl p-1 transition-colors hover:bg-white/5" aria-label="Your profile">
+              <span className="flex">
+                <UserAvatar who="me" size="sm" />
+                <UserAvatar who="partner" size="sm" className="-ml-2.5" />
+              </span>
+              <span className="min-w-0 text-xs">
+                <span className="block truncate font-semibold text-foreground">{profile.me}</span>
+                <span className="block truncate text-muted-foreground">with {profile.partner}</span>
+              </span>
+            </Link>
             <p className="font-heading text-lg font-bold leading-none">
               <span className="text-gradient">{daysTogether.toLocaleString()}</span>{" "}
               <span className="text-sm font-medium text-muted-foreground">days together</span>
@@ -113,6 +126,13 @@ export function AppSidebar() {
             <p className="text-[11px] text-muted-foreground">
               {daysToAnniversary === 0 ? "Happy anniversary! 🎉" : `${daysToAnniversary} days to your anniversary`}
             </p>
+            <button
+              type="button"
+              onClick={() => setLogoutOpen(true)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 py-1.5 text-xs text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Log out
+            </button>
           </div>
         )}
       </SidebarFooter>

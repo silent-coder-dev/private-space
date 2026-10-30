@@ -1,12 +1,15 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppLock } from "@/components/layout/AppLock";
 import { useRoom } from "@/context/room";
 import { RoomProvider } from "@/context/RoomProvider";
 import { SpaceProvider } from "@/context/SpaceProvider";
+import { LOCK_KEY, makeLock } from "@/lib/pin";
 import { setStorageScope, writeStore } from "@/lib/storage";
+import { utcDayKey, utcDayNumber } from "@/lib/time";
 import Chat from "@/pages/Chat";
 import { CallProvider } from "@/call/CallProvider";
 import { MusicProvider } from "@/music/MusicProvider";
@@ -17,6 +20,7 @@ import Games from "@/pages/Games";
 import Index from "@/pages/Index";
 import MusicPlayer from "@/pages/MusicPlayer";
 import NotFound from "@/pages/NotFound";
+import Profile from "@/pages/Profile";
 import Start from "@/pages/Start";
 import { deriveKeys, generateCode, randomId } from "@/sync/crypto";
 import type { SyncEngine } from "@/sync/engine";
@@ -108,7 +112,9 @@ describe("room pages", () => {
     enterRoom({ partnerJoined: false });
     await renderPage(<Dashboard />, "/dashboard");
     expect(screen.getByText("Invite your partner")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /I.m missing you/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /you.re missing them/ })).toBeInTheDocument();
+    expect(screen.getByText("Question of the day")).toBeInTheDocument();
+    expect(screen.getByText("Next time together")).toBeInTheDocument();
   });
 
   it("gallery shows shared photos", async () => {
@@ -147,6 +153,68 @@ describe("room pages", () => {
     enterRoom();
     await renderPage(<MusicPlayer />, "/music");
     expect(await screen.findByText("Add your songs")).toBeInTheDocument();
+  });
+});
+
+describe("home & profile", () => {
+  it("question of the day keeps your partner's answer hidden until you answer", async () => {
+    enterRoom();
+    await renderPage(<Dashboard />, "/dashboard");
+    const today = utcDayKey(utcDayNumber(engineRef!.now()));
+    act(() => {
+      engineRef?.receive({ col: "daily", id: "me", data: { answers: { [today]: { text: "Pizza night 🍕", at: Date.now() } } }, ts: Date.now() + 1000, by: PARTNER_DEVICE });
+    });
+    expect(screen.queryByText("Pizza night 🍕")).toBeNull();
+    expect(screen.getByText(/answered ✓ — answer to see it/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "Stargazing" } });
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    // Both answers show once the form has slid away.
+    expect(await screen.findByText("Pizza night 🍕", undefined, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText("Stargazing", { selector: "p" })).toBeInTheDocument();
+  });
+
+  it("profile changes your name and offers photo, PIN and log out", async () => {
+    enterRoom();
+    await renderPage(<Profile />, "/profile");
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Riya" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Riya" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Saved/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add a profile photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set a PIN" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Log out of this phone/ })).toBeInTheDocument();
+  });
+
+  it("the PIN lock closes the instant you leave the app and opens with the right PIN", { timeout: 20_000 }, async () => {
+    enterRoom({ data: { [LOCK_KEY]: await makeLock("2580") } });
+    await renderPage(
+      <AppLock>
+        <p>Our secret chat</p>
+      </AppLock>,
+      "/dashboard",
+    );
+    const hidden = () => !!screen.getByText("Our secret chat").closest("[inert]");
+    const typePin = (pin: string) => {
+      for (const key of pin) fireEvent.keyDown(window, { key });
+    };
+    // Locked when the app opens.
+    expect(screen.getByRole("dialog", { name: "UsSpace is locked" })).toBeInTheDocument();
+    expect(hidden()).toBe(true);
+    typePin("1111");
+    expect(await screen.findByText("That PIN isn't right. Try again.", undefined, { timeout: 8000 })).toBeInTheDocument();
+    typePin("2580");
+    await waitFor(() => expect(hidden()).toBe(false), { timeout: 8000 });
+
+    // Switching tabs / minimising: locked before the page is even hidden.
+    let lockedRightAway = false;
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      lockedRightAway = !!screen.queryByRole("dialog", { name: "UsSpace is locked" });
+    });
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    expect(lockedRightAway).toBe(true);
+    expect(hidden()).toBe(true);
   });
 });
 

@@ -20,7 +20,9 @@ UsSpace is a private web app for **two people**. One of you **creates a room** a
 
 | | Room | What you can do |
 | --- | --- | --- |
-| 🏠 | **Home** | Days together, a turning **3D heart**, mood check-in, love note of the day, quick call buttons |
+| 🏠 | **Home** | Days together + **milestones** (1,000 days, 1,500 days…), a turning **3D heart**, a **question of the day** (your partner's answer opens once you answer too), a **countdown to your next time together**, **notes for each other**, mood check-in, love note of the day, one-tap call buttons |
+| 💋 | **Thumb kiss** | Both put a thumb on the screen — when your thumbs meet, both phones buzz and show a kiss. Your partner gets a "join" invite |
+| 👤 | **Profile** | Your **profile photo**, name and together-since date, your secret code and share link, **PIN lock**, notifications, and a separate **Log out** button |
 | 💬 | **Chat** | Real-time messages, **photos and videos up to 2 minutes from your camera** (or your gallery), emoji, reactions, *typing…*, ticks (🕓 sending · ✓ sent · ✓✓ seen). Opens at your **newest message** |
 | 📞 | **Calls** | **Voice and video calls** that work on every network: phone to phone when possible, otherwise through the UsSpace server (still encrypted). Mute, camera on/off, switch camera, minimise and keep talking |
 | 💖 | **Missing you** | One tap — your partner gets hearts + "💖 Riya is missing you", or a 💖 message waiting if they're offline |
@@ -30,16 +32,24 @@ UsSpace is a private web app for **two people**. One of you **creates a room** a
 | 🎵 | **Music** | **Your own songs** from the `music` folder, **in sync on both phones**. Keeps playing on every page; control it from the 🎵 button, your lock screen or headphones |
 | 🔔 | **Notifications** | Install UsSpace on your home screen and get calls, messages and hearts even when it's in the background (never showing what a message says) |
 
+### Fast on every phone
+
+Pages switch in about **0.1–0.3 s**: only the landing page loads first, each room is fetched in the background while you look around, the new page appears at once (no waiting for the old one to fade out), heavy glass blur is lighter on phones, and the server sends files **Brotli-compressed**.
+
+### Ideas from popular couple apps — all free here
+
+The newest rooms follow what couples love in apps like Paired, Between and Couple: a **daily question** you both answer, a **thumb kiss**, a **countdown** to your next date, **notes** for each other and **milestones**. In UsSpace they cost nothing, need no account, and stay end-to-end encrypted.
+
 ### Screenshots
 
 | | |
 | --- | --- |
-| ![Home with the 3D heart](front-end/doc/screenshots/dashboard.jpg) | ![Live chat with photos](front-end/doc/screenshots/chat.jpg) |
-| **Home**: days together, 3D heart, mood, love note, calls | **Chat**: live messages, photos, videos, reactions, ticks |
-| ![A voice call](front-end/doc/screenshots/call.jpg) | ![Eight games for two](front-end/doc/screenshots/games.jpg) |
-| **Calls**: voice and video, encrypted | **Games**: 8 two-player games |
-| ![Connect Four](front-end/doc/screenshots/connect-four.jpg) | ![How well do you know me](front-end/doc/screenshots/quiz.jpg) |
-| **Connect Four**: four in a row wins | **How Well Do You Know Me?**: answer, guess, swap |
+| ![Home with the question of the day](front-end/doc/screenshots/dashboard.jpg) | ![Live chat with photos](front-end/doc/screenshots/chat.jpg) |
+| **Home**: days together, question of the day, countdown, notes, mood | **Chat**: live messages, photos, videos, reactions, ticks |
+| ![Profile page](front-end/doc/screenshots/profile.jpg) | ![Eight games for two](front-end/doc/screenshots/games.jpg) |
+| **Profile**: photo, name, your date, secret code, PIN, log out | **Games**: 8 two-player games |
+| ![A voice call](front-end/doc/screenshots/call.jpg) | ![Connect Four](front-end/doc/screenshots/connect-four.jpg) |
+| **Calls**: voice and video, encrypted | **Connect Four**: four in a row wins |
 | ![Shared gallery](front-end/doc/screenshots/gallery.jpg) | ![Drawing together](front-end/doc/screenshots/canvas.jpg) |
 | **Gallery**: shared photos + voice chat | **Canvas**: draw together on a board that grows |
 | ![Music player](front-end/doc/screenshots/music.jpg) | ![Music controls from the top bar](front-end/doc/screenshots/music-popover.jpg) |
@@ -48,8 +58,8 @@ UsSpace is a private web app for **two people**. One of you **creates a room** a
 <p align="center">
   <img src="front-end/doc/screenshots/mobile-home.jpg" alt="Home on a phone" width="200" />
   <img src="front-end/doc/screenshots/mobile-chat.jpg" alt="Chat on a phone" width="200" />
-  <img src="front-end/doc/screenshots/mobile-incoming-call.jpg" alt="Incoming call on a phone" width="200" />
-  <img src="front-end/doc/screenshots/mobile-connect-four.jpg" alt="Connect Four on a phone" width="200" />
+  <img src="front-end/doc/screenshots/mobile-thumb-kiss.jpg" alt="Thumb kiss on a phone" width="200" />
+  <img src="front-end/doc/screenshots/mobile-lock.jpg" alt="PIN lock on a phone" width="200" />
 </p>
 
 ---
@@ -61,11 +71,12 @@ UsSpace is a private web app for **two people**. One of you **creates a room** a
 | 🔑 **Secret code** | 16 random characters (80 bits), made on your phone. Never sent to the server. |
 | 🔒 **End-to-end encryption** | Messages, photos, videos, drawings, names, call set-up — all locked on your phone (XChaCha20-Poly1305) with a key made from the code. The server only passes **locked boxes it can't open**. |
 | 🚪 **2-device lock** | A room holds exactly two devices. A third person is refused — even with the right code. |
-| 🧨 **Close room = delete everything** | Settings → *Close room & delete everything*: the server deletes the room, **both phones wipe their copy**, and the code can never be used again. A phone that was offline wipes itself the moment it comes back. |
+| 🧨 **Close room = delete everything** | Profile → *Close room & delete everything*: the server deletes the room, **both phones wipe their copy**, and the code can never be used again. A phone that was offline wipes itself the moment it comes back. |
 | 💾 **The server forgets** | Rooms live **in memory only**, and a message is dropped from the server as soon as **both phones have saved it**. The optional database stores only "this room is closed" and "these two devices own this room" — never content. |
 | 📞 **Private calls** | Set up through your encrypted room. Audio/video go phone-to-phone (encrypted by the browser), or — when a network blocks that — through the server, **encrypted with your room key**. |
-| 🔢 **PIN lock** | Optional PIN on each phone (PBKDF2-SHA256, 150 000 rounds). Asked on open and after 30 s away. 5 wrong tries → 30 s wait. |
-| 🌫️ **Privacy blur** | The app blurs itself when you switch apps. Notifications never show message text. |
+| 🔢 **Instant PIN lock** | Optional PIN on each phone (only a slow PBKDF2-SHA256 hash is kept, 150 000 rounds). UsSpace locks **the moment you switch tabs, minimise the browser or lock your phone** — and when it opens. Calls and music keep going behind the lock. 5 wrong tries → 30 s wait, even after a reload. |
+| 🖼️ **Profile photo without a database** | Your photo is made small on your phone (320 px), sent **end-to-end encrypted** to your partner and kept only on your two phones. The server forgets it once it's delivered; closing the room deletes it. |
+| 🌫️ **Privacy blur** | Without a PIN, the app still blurs itself in the app switcher. Notifications never show message text. |
 | 🛡️ **Anti-guessing** | Wrong codes are rate-limited per IP; a room locks for a while after 10 wrong tries. |
 | 🧱 **Hardened server** | Strict Content-Security-Policy, camera/mic for this site only, no framing, size, speed and memory limits. |
 
@@ -110,7 +121,7 @@ To try it alone: open a normal window and a private window, create a room in one
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | from your free Upstash database | Recommended — makes *Close room* and the 2-device lock survive restarts |
 | `CLOUDFLARE_TURN_KEY_ID` + `CLOUDFLARE_TURN_API_TOKEN` | from Cloudflare Realtime → TURN | Optional — best call quality on strict mobile networks |
 
-5. Open your `https://…onrender.com` link on both phones — one creates, one joins. Tip: *Add to Home Screen* and turn on notifications in Settings.
+5. Open your `https://…onrender.com` link on both phones — one creates, one joins. Tip: *Add to Home Screen* and turn on notifications in **Profile**.
 
 **Free-plan notes:** the server sleeps after 15 min without visitors (first open ≈ 1 min). When it restarts, your phones re-upload what's missing automatically.
 
@@ -131,8 +142,8 @@ A **Dockerfile** is also included (`docker build -t usspace front-end`).
 | --- | --- |
 | `npm run dev` | Website + live server, auto-reload (port 8080) |
 | `npm run build` / `npm start` | Production build / production server |
-| `npm test` | 96 unit, page and server tests |
-| `npm run test:e2e` | 16 real-browser tests (desktop + phone): create, join, chat, games, **video calls direct and through the server** (`npx playwright install chromium` once) |
+| `npm test` | 99 unit, page and server tests |
+| `npm run test:e2e` | 18 real-browser tests (desktop + phone): create, join, chat, profile photo, question of the day, thumb kiss, **instant PIN lock**, games, **video calls direct and through the server** (`npx playwright install chromium` once) |
 | `npm run typecheck` · `npm run lint` | Type and code checks |
 
 ---
@@ -144,11 +155,12 @@ usspace-your-private-haven/
 ├── README.md            ← you are here
 └── front-end/
     ├── public/music/      ← 🎵 put your songs here
-    ├── src/pages/         Landing, Start (create/join), Home, Chat, Gallery, Canvas, Games, Music, 404
+    ├── src/pages/         Landing, Start (create/join), Home, Chat, Gallery, Canvas, Games, Music, Profile, 404
+    ├── src/components/home/  question of the day, countdown, notes, thumb kiss
     ├── src/call/          voice & video calls (WebRTC + the encrypted backup path)
     ├── src/music/         one music player for the whole app + 🎵 controls
     ├── src/sync/          encryption, shared-data engine, live connection
-    ├── src/components/    effects (3D heart…), layout, chat camera, 8 games
+    ├── src/components/    effects (3D heart…), layout (menu, lock screen, log out), chat camera, 8 games
     ├── src/test/          tests
     ├── server/            relay (rooms, locks, limits, call backup), TURN, database, production server
     ├── e2e/               two-browser tests
@@ -164,6 +176,7 @@ usspace-your-private-haven/
 | [3 · Design](front-end/doc/03-design.md) | Fonts, colours, motion, 3D effects, templates |
 | [4 · Flowcharts](front-end/doc/04-flowcharts.md) | Diagrams of every flow |
 | [5 · Directory Map](front-end/doc/05-directory-map.md) | Every folder and file |
+| [Build prompt](front-end/doc/BUILD-PROMPT.md) | One detailed prompt to rebuild this exact website with any coding agent |
 
 <div align="center">
 

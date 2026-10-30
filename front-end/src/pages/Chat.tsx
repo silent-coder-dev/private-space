@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CameraCapture } from "@/components/chat/CameraCapture";
-import { InitialAvatar } from "@/components/layout/InitialAvatar";
+import { UserAvatar } from "@/components/layout/InitialAvatar";
 import { useCall } from "@/call/call";
 import { useRoom } from "@/context/room";
 import { useSpace } from "@/context/space";
@@ -236,7 +236,7 @@ const Chat = () => {
     <div className="mx-auto flex h-full max-w-4xl flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-white/5 px-4 py-3 sm:px-6">
-        <InitialAvatar name={profile.partner} variant="secondary" online={partnerHere ? presence.partnerOnline && !profile.partnerAway : undefined} />
+        <UserAvatar who="partner" online={partnerHere ? presence.partnerOnline && !profile.partnerAway : undefined} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-heading font-semibold">
             {profile.partner} <span className="ml-0.5">{profile.partnerMood}</span>

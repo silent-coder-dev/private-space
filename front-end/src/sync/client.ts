@@ -10,7 +10,7 @@ export interface Presence {
   partnerSeen: number | null;
 }
 
-export type SignalType = "typing" | "heart" | "nudge" | "call";
+export type SignalType = "typing" | "heart" | "nudge" | "call" | "touch";
 export interface Signal {
   type: SignalType;
   by: string;

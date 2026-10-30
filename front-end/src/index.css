@@ -140,16 +140,20 @@
     text-shadow: 0 0 24px hsl(349 100% 65% / 0.45);
   }
 
-  /* Frosted glass surface with a soft top highlight */
+  /*
+   * Frosted glass surface with a soft top highlight.
+   * Phones get a lighter blur and a more solid card: it looks the same on the dark theme
+   * and keeps scrolling smooth (blur is one of the most expensive effects for a phone GPU).
+   */
   .glass-card {
-    @apply rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-xl;
+    @apply rounded-2xl border border-white/[0.07] bg-card/75 backdrop-blur-md md:bg-card/60 md:backdrop-blur-xl;
     box-shadow:
       inset 0 1px 0 0 hsl(0 0% 100% / 0.05),
       0 10px 30px -12px hsl(236 60% 2% / 0.6);
   }
 
   .glass {
-    @apply border border-white/[0.07] bg-card/50 backdrop-blur-xl;
+    @apply border border-white/[0.07] bg-card/70 backdrop-blur-md md:bg-card/50 md:backdrop-blur-xl;
   }
 
   /* Subtle background patterns */
@@ -276,6 +280,11 @@
 /* Privacy: blur everything while the app is in the background (app switcher, screen sharing). */
 .privacy-blur #root {
   filter: blur(28px);
+}
+
+/* While the PIN lock is showing, pop-ups (which could show who messaged) stay hidden. */
+.app-locked [data-sonner-toaster] {
+  display: none !important;
 }
 
 /* Respect people who prefer less motion */

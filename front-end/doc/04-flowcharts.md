@@ -7,9 +7,9 @@ The diagrams use **Mermaid**, which GitHub and VS Code (with a Mermaid preview e
 
 | Getting in | Every room | Safety & running |
 | --- | --- | --- |
-| [4.1 The big picture](#41-the-big-picture-user-journey) | [4.12 Chat: typing, sending and ticks](#412-chat-typing-sending-and-ticks) | [4.24 PIN lock and privacy blur](#424-pin-lock-and-privacy-blur) |
+| [4.1 The big picture](#41-the-big-picture-user-journey) | [4.12 Chat: typing, sending and ticks](#412-chat-typing-sending-and-ticks) | [4.24 Instant PIN lock](#424-instant-pin-lock) |
 | [4.2 Create a room](#42-create-a-room) | [4.13 Camera: photo or video](#413-camera-photo-or-video) | [4.25 Close room = delete everything](#425-close-room--delete-everything) |
-| [4.3 Join a room](#43-join-a-room) | [4.14 I'm missing you](#414-im-missing-you) | [4.26 Leave on this phone only](#426-leave-on-this-phone-only) |
+| [4.3 Join a room](#43-join-a-room) | [4.14 I'm missing you](#414-im-missing-you) | [4.26 Log out of this phone](#426-log-out-of-this-phone) |
 | [4.4 Four keys from one code](#44-four-keys-from-one-secret-code) | [4.15 A call, step by step](#415-a-call-step-by-step) | [4.27 Notifications](#427-notifications) |
 | [4.5 How one message travels](#45-how-one-message-travels) | [4.16 Direct, repaired or through the server](#416-direct-repaired-or-through-the-server) | [4.28 Quick search (Ctrl + K)](#428-quick-search-ctrl--k) |
 | [4.6 Server checks on join](#46-what-the-server-checks-when-someone-joins) | [4.17 Call screen states](#417-call-screen-states) | [4.29 Phone navigation](#429-phone-navigation) |
@@ -19,6 +19,10 @@ The diagrams use **Mermaid**, which GitHub and VS Code (with a Mermaid preview e
 | [4.10 Component tree](#410-screen-layout-component-tree) | [4.21 The 8 games](#421-the-8-games) | |
 | [4.11 Newest wins + pop-ups](#411-shared-data-newest-wins-and-pop-ups) | [4.22 Music: one player, in sync](#422-music-one-player-in-sync) | |
 | | [4.23 The server forgets](#423-the-server-forgets-what-both-phones-have) | |
+| | [4.31 Profile and photo](#431-profile-and-photo) | |
+| | [4.32 Question of the day](#432-question-of-the-day) | |
+| | [4.33 Thumb kiss](#433-thumb-kiss) | |
+| | [4.34 Next time together and notes](#434-next-time-together-and-notes) | |
 
 ---
 
@@ -37,9 +41,11 @@ flowchart TD
     Code -->|"Enter now"| Home
     Joined --> Home
     Choose -->|"Join"| Join["Code + name"] --> Home
-    Home --> Rooms["💬 Chat + 📞 calls · 🖼️ Gallery · 🎨 Canvas<br/>🎮 8 games · 🎵 Music · 💖 Missing you"]
+    Home --> Rooms["💬 Chat + 📞 calls · 🖼️ Gallery · 🎨 Canvas<br/>🎮 8 games · 🎵 Music · 💖 Missing you<br/>❓ Question of the day · 💋 Thumb kiss · 📅 Countdown · 📝 Notes"]
+    Home --> Profile["👤 Profile<br/>photo · name · date · code · PIN"]
     Rooms <-->|"⚡ live, encrypted"| Partner["📱 Partner's phone"]
-    Rooms -->|"Close room"| Gone["🧨 Everything deleted<br/>server + both phones"]
+    Profile -->|"Log out"| Out["This phone forgets the room<br/>(partner keeps everything)"]
+    Profile -->|"Close room"| Gone["🧨 Everything deleted<br/>server + both phones"]
 ```
 
 Many couples use the same website at the same time: each couple has its own room and code.
@@ -196,7 +202,7 @@ flowchart TD
     H3 --> J["Routes"]
     I --> J
     C --> K["BurstLayer (heart bursts)"]
-    C --> L["Pre-load all pages when idle"]
+    C --> L["Show the landing page first;<br/>when the browser is idle, fetch the private area<br/>and every room in the background"]
 ```
 
 ---
@@ -209,13 +215,14 @@ flowchart LR
     StartP["/start"] --> Start["Create / Join / Secret code"]
     Guard{"RequireRoom"}
     Guard -->|"no room"| StartP
-    Guard -->|"in a room"| Layout["SpaceProvider → AppLock → CallProvider<br/>→ MusicProvider → AppLayout"]
+    Guard -->|"in a room"| Layout["PrivateArea (loaded on demand)<br/>SpaceProvider → AppLock → CallProvider<br/>→ MusicProvider → AppLayout"]
     Layout --> D["/dashboard (Home)"]
     Layout --> C["/chat"]
     Layout --> G["/gallery (?look=1)"]
     Layout --> CV["/canvas"]
     Layout --> GM["/games (?join=1)"]
     Layout --> M["/music"]
+    Layout --> P["/profile"]
     HomeAlias["/home"] -->|"redirect"| D
     Star["* (unknown)"] --> NF["404"]
 ```
@@ -227,18 +234,19 @@ flowchart LR
 ```mermaid
 flowchart TD
     RR["RequireRoom<br/>(+ room problem dialog)"] --> SP["SpaceProvider<br/>me · partner · couple"]
-    SP --> LK["AppLock<br/>PIN screen + privacy blur"]
+    SP --> LK["AppLock<br/>instant lock · keypad · privacy blur"]
     LK --> CP["CallProvider<br/>ringing · WebRTC · backup path"]
     CP --> MP["MusicProvider<br/>one audio player for the whole app"]
     MP --> AL["AppLayout"]
     AL --> AB["AuroraBackground + particles"]
     AL --> AS["AppSidebar"]
-    AL --> TB["Topbar<br/>ConnectionPill · search · 🎵 · 💖"]
+    AL --> TB["Topbar<br/>ConnectionPill · search · 🎵 · 💖 · account menu"]
     AL --> MAIN["main id=main"]
-    MAIN --> PAGE["Current page (3D page turn)"]
+    MAIN --> PAGE["Current page (quick fade, no waiting)"]
     AL --> MN["MobileNav"]
     AL --> CM["CommandMenu"]
-    AL --> SD["SettingsDialog<br/>name · since · code · notifications · PIN · close room"]
+    AL --> LD["LogoutDialog<br/>save your code · Stay · Log out"]
+    AL --> TK["ThumbKiss<br/>full-screen touch pad"]
     AL --> CO["CallOverlay<br/>ringing · full screen · mini bar"]
 ```
 
@@ -523,26 +531,31 @@ flowchart TD
 
 ---
 
-## 4.24 PIN lock and privacy blur
+## 4.24 Instant PIN lock
 
 ```mermaid
 flowchart TD
-    S["Settings → PIN lock on"] --> H["PIN → PBKDF2-SHA256<br/>150 000 rounds + random salt"]
+    S["Profile → Set a PIN<br/>type it twice on the keypad"] --> H["PIN → PBKDF2-SHA256<br/>150 000 rounds + random salt"]
     H --> K["Save only the hash on this phone"]
     O["App opens"] --> L{"PIN set?"}
-    L -->|"Yes"| LS["🔒 UsSpace is locked"]
+    L -->|"Yes"| LS["🔒 Hi Riya, UsSpace is locked<br/>keypad"]
     L -->|"No"| APP["App"]
     LS --> E{"Correct PIN?"}
     E -->|"Yes"| APP
     E -->|"No"| F{"5 wrong tries?"}
-    F -->|"Yes"| W["Wait 30 seconds"]
-    F -->|"No"| SH["Card shakes, try again"]
-    APP --> BG["App goes to the background"]
-    BG --> BL["Blur the whole app<br/>(app switcher, screen share)"]
-    BG --> BK{"Back after more than 30 s<br/>and PIN set?"}
-    BK -->|"Yes"| LS
-    BK -->|"No"| APP
+    F -->|"Yes"| W["Wait 30 seconds<br/>(a reload doesn't skip it)"]
+    F -->|"No"| SH["Dots shake, try again"]
+    LS -->|"Forgot PIN?"| OUT["Log out of this phone<br/>join again with the code"]
+    APP --> BG["Page hidden: switch tab, minimise,<br/>home screen, lock the phone"]
+    BG --> PK{"Did UsSpace itself open<br/>the photo picker or camera?"}
+    PK -->|"Yes"| APP
+    PK -->|"No, and PIN set"| NOW["Lock at once<br/>(drawn before the app-switcher picture)"]
+    NOW --> LS
+    PK -->|"No PIN"| BL["Blur the whole app<br/>(app switcher, screen share)"]
+    APP -->|"Lock now (menu, Profile, Ctrl + K)"| LS
 ```
+
+Behind the lock the app keeps running (calls, music, new messages), but it can't be seen, clicked or read aloud, and pop-ups are hidden.
 
 ---
 
@@ -555,7 +568,7 @@ sequenceDiagram
     participant S as Relay
     participant DB as Database (optional)
     participant B as Kabir's phone
-    Riya->>A: Settings → Close room & delete everything → Confirm
+    Riya->>A: Profile → Close room & delete everything → Confirm
     alt Riya is offline
         A-->>Riya: "You're offline — connect to close the room for both of you"
     else Riya is online
@@ -573,13 +586,13 @@ sequenceDiagram
 
 ---
 
-## 4.26 Leave on this phone only
+## 4.26 Log out of this phone
 
 ```mermaid
 flowchart TD
-    A["Settings → Leave on this phone only"] --> B{"Confirm"}
+    A["Log out<br/>(sidebar · account menu · Profile · Ctrl + K · lock screen)"] --> B{"Log out of this phone?<br/>(copy your secret code first)"}
     B -->|"Stay"| Z["Nothing changes"]
-    B -->|"Leave"| C["Tell the server: leave"]
+    B -->|"Log out"| C["Tell the server: leave"]
     C --> D["Server frees this seat<br/>(the room stays for your partner)"]
     C --> E["Wipe this phone's copy + session"]
     E --> F["Back to the landing page"]
@@ -592,11 +605,11 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    I["Add UsSpace to the home screen<br/>(manifest + icons)"] --> S["Settings → Notifications → Turn on"]
+    I["Add UsSpace to the home screen<br/>(manifest + icons)"] --> S["Profile → Notifications → Turn on"]
     S --> P{"Browser allows it?"}
     P -->|"No"| N["'Blocked in your browser settings'"]
     P -->|"Yes"| ON["On for this phone"]
-    E["Something happens<br/>(ring, message, photo, heart, invite)"] --> V{"Is UsSpace on screen?"}
+    E["Something happens<br/>(ring, message, photo, heart, invite,<br/>a new note, a new date, a thumb kiss)"] --> V{"Is UsSpace on screen?"}
     V -->|"Yes"| T["In-app pop-up only"]
     V -->|"No, in the background"| W["Service worker shows a notification<br/>'📞 Kabir is calling…' · '💬 Kabir — New message'"]
     W --> TAP["Tap it → UsSpace opens<br/>on the right page"]
@@ -618,7 +631,10 @@ flowchart LR
     C -->|"Add photos"| G["/gallery"]
     C -->|"Draw together"| H["/canvas"]
     C -->|"Invite to a game"| I["/games"]
-    C -->|"Profile, room code & settings"| J["Settings dialog"]
+    C -->|"Thumb kiss"| K["💋 (see 4.33)"]
+    C -->|"Profile, photo, room code & settings"| J["/profile"]
+    C -->|"Lock now"| L["🔒 (see 4.24)"]
+    C -->|"Log out of this phone"| O["(see 4.26)"]
 ```
 
 ---
@@ -632,10 +648,11 @@ flowchart LR
     A --> G["Gallery"]
     A --> GM["Games"]
     A --> M["More"]
-    M --> S["Slide-in menu with every room<br/>(Canvas, Music, …)"]
+    M --> S["Slide-in menu with every room<br/>(Canvas, Music, …), your profile card<br/>and Log out"]
     T["Top bar (every page)"] --> T1["🎵 music pop-up"]
     T --> T2["💖 missing you"]
     T --> T3["Connection pill"]
+    T --> T4["Your photo → Profile · Lock now · Log out"]
 ```
 
 ---
@@ -646,13 +663,85 @@ flowchart LR
 flowchart LR
     Dev["npm run dev<br/>(site + relay + music on :8080)"] --> Build["npm run build → dist/<br/>(+ dist/music)"]
     Build --> Start["npm start<br/>server/index.mjs"]
-    Start --> Serve["Serves dist/ with security headers,<br/>gzip and seekable music"]
+    Start --> Serve["Serves dist/ with security headers,<br/>Brotli / gzip and seekable music"]
     Start --> WS["Relay on /ws<br/>rooms in memory, call backup path"]
     Docker["Dockerfile"] --> Start
     Serve & WS --> HTTPS["Behind HTTPS<br/>(Render free, Railway, Fly.io, a VPS…)"]
     HTTPS --> Phones["📱 📱 Both phones open the same address"]
     TURN["Optional: Cloudflare TURN<br/>CLOUDFLARE_TURN_*"] -.-> WS
     DB["Optional: Upstash<br/>UPSTASH_REDIS_REST_*"] -.-> WS
+```
+
+---
+
+## 4.31 Profile and photo
+
+```mermaid
+flowchart TD
+    A["Profile → 📷"] --> B["Choose a photo<br/>(file picker or camera)"]
+    B --> C["On your phone: crop to a square,<br/>shrink to 320 px, JPEG"]
+    C --> D["Save in your member note<br/>(IndexedDB on this phone)"]
+    D --> E["Encrypt + send to the relay"]
+    E --> F["Partner's phone saves it<br/>→ your photo everywhere"]
+    F --> G["Both have it → the server forgets it"]
+    H["Your details: name + together since"] --> I["Save changes"] --> E
+    J["📷 menu → Remove photo"] --> D
+    K["Close room"] --> X["Photo deleted on both phones"]
+```
+
+No database ever holds the photo: it lives on your two phones until the room is closed (or until you log out on that phone).
+
+---
+
+## 4.32 Question of the day
+
+```mermaid
+flowchart TD
+    A["Today's UTC day number"] --> Q["Same question on both phones<br/>(50 questions, in turn)"]
+    Q --> M{"Have I answered today?"}
+    M -->|"No"| F["Answer box<br/>'Kabir answered ✓ — answer to see it'"]
+    F --> S["Share → saved in my daily note → sent encrypted"]
+    S --> R["Both answers shown<br/>(partner's: 'Waiting…' until they answer)"]
+    M -->|"Yes"| R
+    R --> E["Edit my answer"]
+    R --> P["Past answers (last 14 days)"]
+```
+
+---
+
+## 4.33 Thumb kiss
+
+```mermaid
+sequenceDiagram
+    actor Riya
+    participant A as Riya's phone
+    participant S as Relay
+    participant B as Kabir's phone
+    Riya->>A: Home → Thumb kiss
+    A->>S: touch {invite} (live signal, never stored)
+    S-->>B: pop-up "👆 Riya wants a thumb kiss" · Join
+    loop While a thumb is down
+        A->>S: touch {x, y} about 14 times a second
+        S-->>B: draw Riya's thumb
+        B->>S: touch {x, y}
+        S-->>A: draw Kabir's thumb
+    end
+    Note over A,B: Thumbs closer than 12% of the pad → "Thumb kiss! 💞", 💋, hearts and a buzz on both phones
+    A->>S: touch {up} when the thumb lifts
+```
+
+---
+
+## 4.34 Next time together and notes
+
+```mermaid
+flowchart LR
+    A["Set a date<br/>when + what"] --> B["meet note (shared)"]
+    B --> C["Both phones count down<br/>days · hrs · min · sec"]
+    B --> D["Partner: '📅 Riya set your next time together'"]
+    C -->|"within 24 h"| T["Together today!"]
+    N["Leave a note"] --> O["my note (shared)"]
+    O --> P["Partner's Home: 'From Riya' sticky note<br/>+ '📝 Riya left you a note'"]
 ```
 
 **Back:** [← 3 · Design](03-design.md) · **Next:** [5 · Directory Map →](05-directory-map.md)

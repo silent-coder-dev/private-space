@@ -13,7 +13,7 @@ This is the **design guide** for UsSpace. It explains the look and feel, and exa
 - [3.7 Motion and 3D](#37-motion-and-3d)
 - [3.8 Building blocks (components)](#38-building-blocks-components)
 - [3.9 Screen by screen](#39-screen-by-screen)
-- [3.10 Template inspiration (75 patterns)](#310-template-inspiration-75-patterns)
+- [3.10 Template inspiration (82 patterns)](#310-template-inspiration-82-patterns)
 - [3.11 Layout and screen sizes](#311-layout-and-screen-sizes)
 - [3.12 Accessibility](#312-accessibility)
 - [3.13 Words and tone](#313-words-and-tone)
@@ -30,7 +30,7 @@ This is the **design guide** for UsSpace. It explains the look and feel, and exa
 | 🌙 **Night** | Deep navy background, like a quiet evening together. |
 | 💗 **Love** | A rose-pink to violet gradient on everything important. |
 | 🫧 **Soft** | Frosted-glass cards, big rounded corners, gentle shadows. |
-| ✨ **Alive** | Moving aurora light, floating hearts, a turning 3D heart, 3D page turns. |
+| ✨ **Alive** | Moving aurora light, floating hearts, a turning 3D heart, quick page fades. |
 | ✍️ **Personal** | A handwriting font for the love note of the day. |
 
 There is one theme, a **dark theme**. It is easy on the eyes at night, when couples often talk.
@@ -89,7 +89,7 @@ The canvas has 9 quick colours plus a "pick any colour" button: rose `#FF4D6D`, 
 | **Static text gradient** (`.text-gradient`) | Brand gradient clipped to text | Logo, numbers, the secret code |
 | **Glow** (`.glow-primary`) | `0 0 24px rose @30%` | Main buttons, winning squares |
 | **Blush glow** (`.glow-accent`) | `0 0 36px pink @35%` | Soft highlights |
-| **Aurora** | 3 big radial lights (rose, violet, pink) drifting over 22 s | Behind the whole app |
+| **Aurora** | 3 big radial lights (rose, violet, pink) drifting over 22 s (still on phones, to save battery) | Behind the whole app |
 | **Heart glow** | A blurred rose circle behind the 3D heart and the record | Home, Music |
 
 ---
@@ -141,8 +141,8 @@ Fallbacks: Poppins / Inter / system UI, then `cursive` for Caveat.
 ```css
 rounded-2xl
 border: 1px solid rgba(255,255,255,0.07)
-background: card colour at 60%
-backdrop-filter: blur(24px)
+background: card colour at 60%   /* 75% on phones */
+backdrop-filter: blur(24px)      /* 12px on phones: much cheaper to draw */
 box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
             0 10px 30px -12px rgba(2,3,10,0.6)      /* soft drop shadow */
 ```
@@ -183,7 +183,7 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
 | Effect | How it's made | Where |
 | --- | --- | --- |
 | **3D heart** | 16 heart shapes stacked in depth (`translateZ`) and turning (`rotateY`, 9 s) | Home |
-| **3D page turn** | Each page enters tipped back (`rotateX 7°`) and stands up | Every page |
+| **Page fade** | Each new page appears at once and fades + rises 8 px in 0.18 s (no waiting for the old page) | Every page |
 | **3D tilt cards** | Cards follow the mouse up to 9°, with a light spot | Feature, room and game cards, gallery photos |
 | **3D record** | The vinyl tips back (`rotateX 8° → 18°` while playing) and spins | Music |
 | **3D flip cards** | Cards turn over (`rotateY 180°`) | Truth or Dare, Memory Match, Rock Paper Scissors |
@@ -195,7 +195,9 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
 
 | Animation | Duration | Where |
 | --- | --- | --- |
-| Page change (3D turn + fade + rise) | 0.34 s | Every page |
+| Page change (fade + rise, new page only) | 0.18 s | Every page |
+| Thumb-kiss partner thumb fade | 1.5 s after the last touch | Thumb kiss |
+| Countdown digits | every 1 s, digits slide | Next time together |
 | List items appearing (staggered) | 0.5 s each, 70 ms apart | Home, gallery, lists |
 | Active pill slide | spring | Sidebar, dock, tabs, moods, canvas tools, playlist |
 | Button press | scale 0.97 | All buttons |
@@ -235,12 +237,13 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,0.05),   /* soft top light */
 
 ### Layout ([`components/layout/`](../src/components/layout))
 
-`AppLayout` (3D page turns) · `AppSidebar` · `Topbar` (🎵 music, 💖 missing you, calls, connection) · `MobileNav` · `CommandMenu` · `SettingsDialog` · `AppLock` (PIN screen + privacy blur) · `ConnectionPill` · `RequireRoom` · `PageHeader` · `EmptyState` · `InitialAvatar` · `PageLoader`
+`AppLayout` (quick page fades) · `AppSidebar` (profile card with both photos, days together, Log out) · `Topbar` (🎵 music, 💖 missing you, connection, **account menu** on your photo) · `MobileNav` · `CommandMenu` · `LogoutDialog` · `AppLock` (instant lock, keypad `PinPad`, privacy blur) · `ConnectionPill` · `RequireRoom` · `PageHeader` · `EmptyState` · `InitialAvatar` / `UserAvatar` (photo or initial, online dot) · `PageLoader`
 
 ### Feature parts
 
 | Part | Where |
 | --- | --- |
+| `QuestionCard`, `MeetCard`, `NoteCard`, `ThumbKiss` | [`components/home/`](../src/components/home) |
 | `CameraCapture`: live camera, photo / video switch, record ring, flip camera | [`components/chat/`](../src/components/chat) |
 | `CallOverlay`: ringing screen, full-screen call, floating call bar, "Connected through UsSpace" chip, "Tap to hear" button | [`call/`](../src/call) |
 | `MusicProgress`, `MusicButtons`, `MusicVolume`, `TopbarMusic` | [`music/MusicControls.tsx`](../src/music/MusicControls.tsx) |
@@ -261,23 +264,28 @@ Real screenshots of every screen are in [`screenshots/`](screenshots) (desktop a
 | ![Home](screenshots/dashboard.jpg) | ![Chat](screenshots/chat.jpg) | ![Music pop-up](screenshots/music-popover.jpg) |
 | **Gallery** | **Canvas** | **Games** |
 | ![Gallery](screenshots/gallery.jpg) | ![Canvas](screenshots/canvas.jpg) | ![Games](screenshots/games.jpg) |
+| **Profile** | **Thumb kiss (phone)** | **PIN lock (phone)** |
+| ![Profile](screenshots/profile.jpg) | ![Thumb kiss](screenshots/mobile-thumb-kiss.jpg) | ![PIN lock](screenshots/mobile-lock.jpg) |
 
 | Screen | Look |
 | --- | --- |
 | **Start · Choose** | Big heading "Your private room *for two*" (moving gradient), two tilting cards (**Create a room** ✨ / **Join a room** 🔑) and a green security strip. |
 | **Start · Secret code** | A card with a travelling border beam, the big gradient code, **Copy · Share · QR**, a pulsing "Waiting for your partner…", then "💞 Kabir joined!". |
-| **Home** | The 3D heart over the days-together number, the mood picker, the love note in handwriting, a big **I'm missing you** button, video / voice call buttons and live room cards. |
+| **Home** | A hero card with both photos joined by 💞, a greeting, the big days-together number, gold / glass chips (years, anniversary, next milestone) and the 3D heart. Under it four equal buttons: gradient **Missing you**, then glass **Thumb kiss**, **Video call**, **Voice call** (icons above the words on phones). Then two columns: **Question of the day** (chat-like answer bubbles with avatars) and the **mood picker** (8 emoji with labels, your partner's mood in a chip) on the left; the **countdown** (four glass number tiles: days, hrs, min, sec) and a **sticky note** (gold → blush gradient, handwriting) on the right. Then the love note and the room cards. |
+| **Thumb kiss** | Full screen. A dark pad with a dotted glow; your thumb is a glowing rose fingerprint, your partner's a violet one. When they meet: "Thumb kiss! 💞", a 💋, hearts and a buzz. |
+| **Profile** | A gradient banner with your big round photo half over its edge and a round camera button (add, or a small menu: choose a new photo / remove). Your name, "Together with Kabir since …", your partner's status card, then three stats (days together, years, days to anniversary). Below, glass cards: **Your details**, **Your private room** (code, share), **PIN lock**, **Notifications**, and **Your account on this phone** (Log out, Close room in red). |
+| **Account menu** | Tap your photo at the top: a small glass menu with your photo, name and "With Kabir · 1,353 days", then **Profile & settings**, **Lock now** (if you have a PIN) and a rose **Log out**. |
 | **Chat** | Gradient bubbles for me, glass bubbles for my partner. Photos and videos sit inside bubbles. A camera sheet with a round record button and a timer (up to 2:00). Call buttons in the header. When you scroll up, a glass "↓ Latest messages" pill floats above the composer. |
 | **Call** | Full screen. In a video call the partner's video fills the screen and my own video is a small rounded tile in the corner. In a voice call the avatar, name and timer sit in the middle (like a phone call) with a small "🛡️ End-to-end encrypted" line. Round buttons at the bottom: mute, camera, switch, minimise, and a red end button. Incoming calls show ripple rings and a green **Accept** button. On the backup path a glass chip says "Connected through UsSpace · encrypted". Minimised, it becomes a small glass pill with the timer. |
 | **Gallery** | A masonry grid (2 → 4 columns) of tilting photos. Full-screen viewer with arrows and swipe, **Show Kabir**, save, delete, and a **Voice chat** button in the header. |
 | **Canvas** | A glass toolbar (pen, neon, eraser, stickers, ✋ scroll, colours, sizes, photo) that **stays at the top while you scroll**, undo / save / clear on top, and a cream paper sheet underneath that **grows as you draw**. A faint violet line marks every screen-height on a long board, and a "↓ More space" button sits under it. |
-| **Games** | Eight tilting game cards (4 per row on a laptop) with an **Invite** button. Inviting shows a spinner, "Waiting for Kabir to join…". Your partner sees "Riya invites you to play…" with **Join game**. |
+| **Games** | Eight tilting game cards (3 per row on a laptop, 4 on a wide screen) with an **Invite** button. Inviting shows a spinner, "Waiting for Kabir to join…". Your partner sees "Riya invites you to play…" with **Join game**. |
 | **Connect Four** | A gradient board (rose → violet) with 7 × 6 round slots; hearts fall into place, the four winning slots glow gold, and the scoreboard rings the player whose turn it is. |
 | **Quiz / Never Have I Ever / RPS** | Big glass question cards that swing in, answer buttons that turn gradient when picked, green / red rings when the answer is revealed, and face-down cards that flip for Rock Paper Scissors. |
 | **Music** | A tipped 3D vinyl record with a heart label and a pink glow, the song title, "Listening together", a progress bar, a gradient play button, volume, and a searchable playlist with a sliding highlight. |
 | **🎵 top-bar pop-up** | Now playing, the progress bar, all controls and volume in a small glass pop-up on every page. The icon becomes bouncing bars while music plays. |
-| **PIN lock** | A glass card with a glowing gradient lock tile, "UsSpace is locked" and a PIN field. The card shakes on a wrong PIN. |
-| **Settings** | Name, together-since date, secret code (hidden until you tap), notifications (Turn on / off), PIN lock, and a red **Close room & delete everything** button. |
+| **PIN lock** | Like a phone's own lock screen: your photo with a small gradient lock badge, "Hi Riya, UsSpace is locked", four dots that fill as you type, and a round **keypad** (0–9 and delete; your keyboard works too). The dots shake red on a wrong PIN. "Forgot PIN?" offers Log out. |
+| **Log out** | A dialog: "Log out of this phone?", a reminder to save your secret code (with a Copy button), **Stay** and a rose **Log out**. |
 
 ### Connection pill colours
 
@@ -295,7 +303,7 @@ Real screenshots of every screen are in [`screenshots/`](screenshots) (desktop a
 
 ---
 
-## 3.10 Template inspiration (75 patterns)
+## 3.10 Template inspiration (82 patterns)
 
 We studied many popular free UI libraries and templates, including **Aceternity UI**, **Magic UI**, **shadcn/ui blocks**, **Cruip** and **Velora UI**, and the design language of apps like **Linear, Vercel, Stripe, Apple (FaceTime, Photos, Music), Spotify, iMessage, WhatsApp, Pinterest and Excalidraw**. We did **not** copy any template's code. We re-built each idea by hand to fit UsSpace's romantic style.
 
@@ -376,6 +384,13 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | 73 | "Jump to latest" pill | WhatsApp, Slack | Chat |
 | 74 | App icon + install | Phone home screens (PWA) | Add to Home Screen |
 | 75 | "Connection" chip on a call | Google Meet, FaceTime | Backup call path |
+| 76 | Profile header with banner + overlapping photo | Twitter/X, LinkedIn, Instagram | Profile |
+| 77 | Account menu on the avatar | Google, GitHub, Notion | Top bar |
+| 78 | Number keypad lock | iOS / Android lock screen | PIN lock |
+| 79 | Daily question, answers revealed together | Paired, Agapé | Home |
+| 80 | Thumb kiss | Couple (Pair), Thumbkiss | Thumb kiss |
+| 81 | Countdown tiles | Event and launch pages, Between | Next time together |
+| 82 | Sticky note | Notes apps, fridge notes | Notes for each other |
 
 ---
 
@@ -385,7 +400,7 @@ We studied many popular free UI libraries and templates, including **Aceternity 
 | --- | --- | --- |
 | Phone | < 768 px | Top bar + **floating bottom dock** (Home, Chat, Gallery, Games, More). Single column. |
 | Tablet | ≥ 768 px (`md`) | **Sidebar** appears (groups: Us · Create · Play). Cards become 2 columns. |
-| Laptop | ≥ 1024 px (`lg`) | Up to 4 columns in the gallery and the games list, playlist beside the player. |
+| Laptop | ≥ 1024 px (`lg`) | Home in two columns, up to 4 columns in the gallery, 3 in the games list (4 on wide screens), playlist beside the player. |
 | Wide | ≥ 1280 px | Content is centred and capped at 1152 px. |
 
 - On phones narrower than 440 px, the top bar shows only the heart logo (no "UsSpace" word), so 🔍, 🎵, 💖 and the profile button always fit.

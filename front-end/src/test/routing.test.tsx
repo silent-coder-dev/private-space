@@ -24,9 +24,9 @@ const enterRoom = () => {
 };
 
 describe("routing", () => {
-  it("shows the landing page at /", () => {
+  it("shows the landing page at /", async () => {
     visit("/");
-    expect(screen.getByText("feel at home.")).toBeInTheDocument();
+    expect(await screen.findByText("feel at home.", undefined, { timeout: 4000 })).toBeInTheDocument();
   });
 
   it("keeps the private rooms locked until you create or join a room", async () => {

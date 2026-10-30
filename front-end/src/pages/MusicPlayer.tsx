@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Equalizer } from "@/components/fx/Equalizer";
 import { SpotlightCard } from "@/components/fx/SpotlightCard";
-import { InitialAvatar } from "@/components/layout/InitialAvatar";
+import { UserAvatar } from "@/components/layout/InitialAvatar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useRoom } from "@/context/room";
 import { useSpace } from "@/context/space";
@@ -79,8 +79,8 @@ const MusicPlayer = () => {
 
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <div className="flex">
-                <InitialAvatar name={profile.me} size="sm" />
-                <InitialAvatar name={profile.partner} size="sm" variant="secondary" className="-ml-2" />
+                <UserAvatar who="me" size="sm" />
+                <UserAvatar who="partner" size="sm" className="-ml-2" />
               </div>
               <span>{music.playing ? (presence.partnerOnline ? "Listening together" : "Playing") : "Paused"}</span>
               <Equalizer playing={music.playing} className="text-primary" />

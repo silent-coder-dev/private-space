@@ -102,12 +102,76 @@ test("every room opens without errors", async ({ browser }) => {
   const errors: string[] = [];
   riya.page.on("pageerror", (err) => errors.push(err.message));
   await riya.page.getByRole("button", { name: "Enter our space" }).click();
-  for (const path of ["/dashboard", "/chat", "/gallery", "/canvas", "/games", "/music"]) {
+  for (const path of ["/dashboard", "/chat", "/gallery", "/canvas", "/games", "/music", "/profile"]) {
     await riya.page.goto(path);
     await expect(riya.page.locator("main h1, main p").first()).toBeVisible();
   }
   expect(errors).toEqual([]);
   await riya.context.close();
+});
+
+/** A 1×1 picture, enough to test the profile photo. */
+const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+
+test("photo, today's question and a thumb kiss reach your partner; the PIN locks the moment you leave", async ({ browser }) => {
+  const riya = await createRoom(browser, "Riya");
+  const kabir = await joinRoom(browser, riya.code, "Kabir");
+  await expect(kabir.page).toHaveURL(/\/dashboard$/);
+  await riya.page.getByRole("button", { name: "Enter our space" }).click();
+  await expect(riya.page).toHaveURL(/\/dashboard$/);
+
+  // Profile photo: chosen on Riya's phone, shown on Kabir's.
+  await riya.page.goto("/profile");
+  await riya.page.locator('input[type="file"]').setInputFiles({ name: "me.png", mimeType: "image/png", buffer: Buffer.from(TINY_PNG, "base64") });
+  await expect(kabir.page.getByRole("img", { name: "Riya" }).first()).toBeVisible();
+
+  // Question of the day: Kabir only sees Riya's answer after answering too.
+  await riya.page.goto("/dashboard");
+  await riya.page.getByLabel("Your answer").fill("Stargazing");
+  await riya.page.getByRole("button", { name: "Share" }).click();
+  await expect(kabir.page.getByText("Riya answered ✓ — answer to see it")).toBeVisible();
+  await expect(kabir.page.getByText("Stargazing")).toHaveCount(0);
+  await kabir.page.getByLabel("Your answer").fill("Pizza night");
+  await kabir.page.getByRole("button", { name: "Share" }).click();
+  await expect(kabir.page.getByText("Stargazing")).toBeVisible();
+  await expect(riya.page.getByText("Pizza night")).toBeVisible();
+
+  // Thumb kiss: both thumbs on the same spot.
+  await riya.page.getByRole("button", { name: "Thumb kiss" }).first().click();
+  await kabir.page.getByRole("button", { name: "Join" }).click();
+  for (const p of [riya.page, kabir.page]) {
+    const pad = await p.getByLabel("Touch pad — put your thumb here").boundingBox();
+    if (!pad) throw new Error("no touch pad");
+    await p.mouse.move(pad.x + pad.width / 2, pad.y + pad.height / 2);
+    await p.mouse.down();
+  }
+  for (const p of [riya.page, kabir.page]) await expect(p.getByText("Thumb kiss! 💞")).toBeVisible();
+  for (const p of [riya.page, kabir.page]) {
+    await p.mouse.up();
+    await p.getByRole("button", { name: "Close thumb kiss" }).click();
+  }
+
+  // PIN: set it, then switching tabs locks at once; the right PIN opens it again.
+  await riya.page.goto("/profile");
+  await riya.page.getByRole("button", { name: "Set a PIN" }).click();
+  for (const d of "2580") await riya.page.keyboard.press(d);
+  await riya.page.keyboard.press("Enter");
+  for (const d of "2580") await riya.page.keyboard.press(d);
+  await expect(riya.page.getByRole("button", { name: "Lock now" })).toBeVisible();
+  const setVisibility = (state: string) =>
+    riya.page.evaluate((s) => {
+      Object.defineProperty(document, "visibilityState", { value: s, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, state);
+  await setVisibility("hidden");
+  await setVisibility("visible");
+  const lock = riya.page.getByRole("dialog", { name: "UsSpace is locked" });
+  await expect(lock).toBeVisible();
+  for (const d of "2580") await riya.page.keyboard.press(d);
+  await expect(lock).toHaveCount(0);
+
+  await riya.context.close();
+  await kabir.context.close();
 });
 
 test("game invite starts only when the partner joins, and a video call connects", async ({ browser }) => {

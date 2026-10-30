@@ -1,4 +1,4 @@
-import { Gamepad2, Image, LayoutDashboard, MessageCircleHeart, Music, Palette, type LucideIcon } from "lucide-react";
+import { Gamepad2, Image, LayoutDashboard, MessageCircleHeart, Music, Palette, UserRound, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   title: string;
@@ -22,4 +22,7 @@ export const NAV_GROUPS = ["Us", "Create", "Play"] as const;
 /** Items shown in the bottom bar on phones (the rest live under "More"). */
 export const MOBILE_NAV_URLS = ["/dashboard", "/chat", "/gallery", "/games"];
 
-export const findNavItem = (pathname: string) => NAV_ITEMS.find((item) => item.url === pathname);
+/** Your profile page (opened from your avatar, not listed in the menu). */
+export const PROFILE_PAGE: NavItem = { title: "Profile", url: "/profile", icon: UserRound, description: "You, your partner & your room", group: "Us" };
+
+export const findNavItem = (pathname: string) => [...NAV_ITEMS, PROFILE_PAGE].find((item) => item.url === pathname);

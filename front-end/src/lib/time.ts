@@ -157,3 +157,20 @@ export function dayDistance(value: string, now: Date = new Date()): string {
   if (days === -1) return "yesterday";
   return days > 0 ? `in ${days} days` : `${-days} days ago`;
 }
+
+const DAY_MS = 86_400_000;
+
+/** The day number in UTC (the same on both phones, even in different time zones). */
+export const utcDayNumber = (at: number = Date.now()): number => Math.floor(at / DAY_MS);
+
+/** "yyyy-mm-dd" for a UTC day number. */
+export const utcDayKey = (dayNumber: number): string => new Date(dayNumber * DAY_MS).toISOString().slice(0, 10);
+
+/** Big round numbers worth celebrating. */
+const MILESTONES = [100, 200, 300, 500, 750, 1000, 1500, 2000, 2500, 3000, 3650, 4000, 5000, 7500, 10000];
+
+/** The next "days together" milestone after `days` (and whether today is one). */
+export function milestone(days: number): { today: boolean; next: number; inDays: number } {
+  const next = MILESTONES.find((m) => m > days) ?? Math.ceil((days + 1) / 1000) * 1000;
+  return { today: MILESTONES.includes(days), next, inDays: next - days };
+}

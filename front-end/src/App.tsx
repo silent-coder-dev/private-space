@@ -4,19 +4,15 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BurstLayer } from "@/components/fx/BurstLayer";
-import AppLayout from "@/components/layout/AppLayout";
 import { PageLoader } from "@/components/layout/PageLoader";
-import { AppLock } from "@/components/layout/AppLock";
-import { RequireRoom } from "@/components/layout/RequireRoom";
-import { CallProvider } from "@/call/CallProvider";
-import { MusicProvider } from "@/music/MusicProvider";
 import { RoomProvider } from "@/context/RoomProvider";
-import { SpaceProvider } from "@/context/SpaceProvider";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
-// Each page is split into its own small file and loaded on demand.
+// Each page (and the private app shell) is its own small file, loaded on demand.
 const pageLoaders = {
+  index: () => import("./pages/Index"),
+  privateArea: () => import("./PrivateArea"),
+  profile: () => import("./pages/Profile"),
   start: () => import("./pages/Start"),
   dashboard: () => import("./pages/Dashboard"),
   chat: () => import("./pages/Chat"),
@@ -26,6 +22,9 @@ const pageLoaders = {
   music: () => import("./pages/MusicPlayer"),
 };
 
+const Index = lazy(pageLoaders.index);
+const PrivateArea = lazy(pageLoaders.privateArea);
+const Profile = lazy(pageLoaders.profile);
 const Start = lazy(pageLoaders.start);
 const Dashboard = lazy(pageLoaders.dashboard);
 const Chat = lazy(pageLoaders.chat);
@@ -48,21 +47,6 @@ function usePreloadPages() {
   }, []);
 }
 
-/** The private part of the app: only reachable once this device is in a room. */
-const PrivateArea = () => (
-  <RequireRoom>
-    <SpaceProvider>
-      <AppLock>
-        <CallProvider>
-          <MusicProvider>
-            <AppLayout />
-          </MusicProvider>
-        </CallProvider>
-      </AppLock>
-    </SpaceProvider>
-  </RequireRoom>
-);
-
 const App = () => {
   usePreloadPages();
 
@@ -73,7 +57,14 @@ const App = () => {
         <BrowserRouter>
           <RoomProvider>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route
+                path="/"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <Index />
+                  </Suspense>
+                }
+              />
               <Route
                 path="/start"
                 element={
@@ -82,13 +73,20 @@ const App = () => {
                   </Suspense>
                 }
               />
-              <Route element={<PrivateArea />}>
+              <Route
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <PrivateArea />
+                  </Suspense>
+                }
+              >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/gallery" element={<Gallery />} />
                 <Route path="/canvas" element={<Canvas />} />
                 <Route path="/games" element={<Games />} />
                 <Route path="/music" element={<MusicPlayer />} />
+                <Route path="/profile" element={<Profile />} />
               </Route>
               <Route path="/home" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />

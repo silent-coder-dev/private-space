@@ -81,7 +81,7 @@ const Games = () => {
   const name = game ? GAME_NAMES[game.game] : "";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         icon={Gamepad2}
         title="Games"
@@ -155,13 +155,13 @@ const Games = () => {
           </Panel>
         ) : (
           <Panel key="pick">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {GAMES.map((g, i) => (
-                <motion.div key={g.id} initial={{ opacity: 0, y: 20, rotateX: 20 }} animate={{ opacity: 1, y: 0, rotateX: 0 }} transition={{ delay: i * 0.08, ease: EASE_OUT }} style={{ transformPerspective: 1000 }}>
-                  <SpotlightCard tilt className="flex h-full flex-col gap-4 p-6">
+                <motion.div key={g.id} initial={{ opacity: 0, y: 20, rotateX: 20 }} animate={{ opacity: 1, y: 0, rotateX: 0 }} transition={{ delay: i * 0.04, ease: EASE_OUT }} style={{ transformPerspective: 1000 }}>
+                  <SpotlightCard tilt className="flex h-full flex-col gap-3 p-5">
                     <div className="flex items-center gap-3">
-                      <span className="grid h-14 w-14 place-items-center rounded-2xl gradient-soft text-3xl ring-1 ring-primary/30">{g.emoji}</span>
-                      <p className="font-heading text-lg font-semibold">{GAME_NAMES[g.id]}</p>
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl gradient-soft text-2xl ring-1 ring-primary/30">{g.emoji}</span>
+                      <p className="font-heading text-lg font-semibold leading-tight">{GAME_NAMES[g.id]}</p>
                     </div>
                     <p className="text-sm text-muted-foreground">{g.text}</p>
                     <Button variant="gradient" className="mt-auto w-full" onClick={() => invite(g.id)}>

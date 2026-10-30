@@ -70,6 +70,7 @@ mindmap
           Canvas
           Games
           Music
+          Profile
           404
         sync
           crypto
@@ -86,7 +87,8 @@ mindmap
           controls
         components
           fx effects + 3D heart
-          layout + PIN lock
+          home cards + thumb kiss
+          layout + instant PIN lock
           chat camera
           8 games
           landing
@@ -96,7 +98,8 @@ mindmap
           space
         lib
           IndexedDB
-          media
+          media + profile photos
+          PIN hashing
           storage
           time
           games
@@ -119,9 +122,10 @@ usspace-your-private-haven/
     ├── doc/                          📚 Five easy-English guides
     │   ├── 01-problem-and-solution.md    What problem, what website, which users
     │   ├── 02-approaches.md              How it was built, security, sync, calls, the database, bugs fixed
-    │   ├── 03-design.md                  Fonts, colours, motion, 3D, 75 template patterns
+    │   ├── 03-design.md                  Fonts, colours, motion, 3D, 82 template patterns
     │   ├── 04-flowcharts.md              Diagrams of every flow
     │   ├── 05-directory-map.md           This map
+    │   ├── BUILD-PROMPT.md               One detailed prompt to rebuild the whole website with a coding agent
     │   └── screenshots/                  Pictures used in the README
     │
     ├── index.html                    The one HTML page: title, meta tags, fonts
@@ -164,24 +168,29 @@ usspace-your-private-haven/
     │
     ├── e2e/
     │   └── smoke.spec.ts             Two browsers: create, join, live chat, wrong code, full room, every room
-    │                                 opens, game invite, video call direct, call through the server,
+    │                                 opens, profile photo + question of the day + thumb kiss + instant PIN lock,
+    │                                 game invite, video call direct, call through the server,
     │                                 automatic switch when no direct line works
     │
     └── src/                          ✨ The app
         ├── main.tsx                  Starts React + registers the service worker
-        ├── App.tsx                   Providers, routes, room guard, lazy pages
+        ├── App.tsx                   Providers, routes, lazy pages + quiet pre-loading
+        ├── PrivateArea.tsx           Everything behind the code: room guard, PIN lock, calls, music, layout
         ├── index.css                 Design tokens + glass, gradient, beam effects, privacy blur
         ├── vite-env.d.ts             Type hints for Vite
         │
         ├── pages/                    One file per screen
         │   ├── Index.tsx             Landing page
         │   ├── Start.tsx             Create a room · Join a room · Secret code + QR
-        │   ├── Dashboard.tsx         Home: 3D heart, days together, mood, love note, missing you, calls
+        │   ├── Dashboard.tsx         Home: photos, days + milestones, 4 big buttons, question, countdown,
+        │   │                         notes, mood, love note, room cards
         │   ├── Chat.tsx              Live chat: typing, ticks, photos, videos, camera, reactions, calls, "Latest"
         │   ├── Gallery.tsx           Shared photos, full-screen viewer, "Show Kabir", voice chat
         │   ├── Canvas.tsx            Draw together on a board that grows: pen, neon, stickers, photos, scroll, PNG
         │   ├── Games.tsx             8 games: invite → partner joins → play
         │   ├── MusicPlayer.tsx       Vinyl, shared controls, searchable playlist
+        │   ├── Profile.tsx           Photo, name, together since, code + share, PIN, notifications, log out,
+        │   │                         close room
         │   └── NotFound.tsx          Friendly 404
         │
         ├── sync/                     🔐 Encryption + live sync
@@ -208,11 +217,13 @@ usspace-your-private-haven/
         │   ├── room.ts               useRoom() + friendly room errors
         │   ├── RoomProvider.tsx      Create, join, leave, close, status, presence, signals, pop-ups
         │   ├── space.ts              useSpace()
-        │   └── SpaceProvider.tsx     Me + partner + couple → one easy profile
+        │   └── SpaceProvider.tsx     Me + partner + couple → one easy profile (names, photos, date),
+        │                             plus which dialogs are open (log out, thumb kiss, search)
         │
         ├── components/
         │   ├── fx/                   ✨ Animated effects (14 files, incl. Heart3D)
-        │   ├── layout/               🧱 App frame (13 files, incl. AppLock, ConnectionPill, RequireRoom)
+        │   ├── home/                 🏠 QuestionCard, MeetCard (countdown), NoteCard, ThumbKiss
+        │   ├── layout/               🧱 App frame (13 files, incl. AppLock, LogoutDialog, RequireRoom)
         │   ├── chat/                 📷 CameraCapture (photos + videos up to 2 minutes)
         │   ├── games/                🎮 The 8 two-player games + new-game.ts (fresh game states)
         │   ├── landing/              🌌 Mini demos for landing cards
@@ -226,26 +237,30 @@ usspace-your-private-haven/
         │
         ├── lib/                      🧠 Plain logic
         │   ├── idb.ts                Small IndexedDB helper (big storage for photos and videos)
-        │   ├── media.ts              Shrink photos, read videos (max 2 min / 8 MB), best video format
+        │   ├── media.ts              Shrink photos, profile photos (320 px square), read videos (max 2 min /
+        │   │                         8 MB), best video format
+        │   ├── pin.ts                PIN hashing (PBKDF2), wrong-try counter, useAppLock()
         │   ├── notify.ts             Phone notifications while the app is in the background
         │   ├── storage.ts            Per-room local storage + usePersistentState
-        │   ├── time.ts               Local dates, countdowns, anniversaries
+        │   ├── time.ts               Local dates, countdowns, anniversaries, milestones, UTC day number
         │   ├── games.ts              Winner checks (3 and 4 in a row), rock-paper-scissors, shuffles, shared order
-        │   ├── content.ts            All words: love notes, prompts, quiz questions, moods, game names
+        │   ├── content.ts            All words: love notes, prompts, quiz questions, moods, game names,
+        │   │                         50 questions of the day
         │   ├── seed.ts               Starting values (names, player, boards)
         │   ├── types.ts              Shapes of shared data
-        │   ├── nav.ts                Menu items + phone dock
+        │   ├── nav.ts                Menu items, phone dock, the Profile page entry
         │   ├── burst.ts              Heart-burst event bus
         │   ├── motion.ts             Shared animation timings
         │   └── utils.ts              cn() class helper
         │
-        └── test/                     🧪 96 Vitest tests
-            ├── setup.ts              Browser mocks (incl. an offline WebSocket)
+        └── test/                     🧪 99 Vitest tests
+            ├── setup.ts              Browser mocks (incl. an offline WebSocket, silent audio + canvas)
             ├── crypto.test.ts        Codes, keys, encryption (12)
             ├── engine.test.ts        Newest-wins, deletes, me ↔ partner, all-or-nothing saving (11)
             ├── relay.test.ts         The real relay server: close room, forgetting, epochs, resync, call
             │                         frames, TURN, the database across restarts, memory cap (18)
-            ├── pages.test.tsx        Every page inside a room, game invites, Connect Four, the growing canvas (15)
+            ├── pages.test.tsx        Every page inside a room, game invites, Connect Four, the growing canvas,
+            │                         question of the day, Profile, instant PIN lock (18)
             ├── routing.test.tsx      Room guard, layout, 404 (5)
             ├── time.test.ts          Dates and anniversaries (17)
             ├── games.test.ts         All game rules + call voice encoding (12)
@@ -261,10 +276,14 @@ Arrows mean "uses". Pages sit at the top. The phones talk to the server only thr
 ```mermaid
 flowchart TD
     App["App.tsx"] --> Context["context/<br/>RoomProvider · SpaceProvider"]
-    App --> Call["call/<br/>CallProvider + backup path"]
-    App --> Music["music/<br/>MusicProvider"]
+    App --> Private["PrivateArea.tsx<br/>(loaded on demand)"]
+    Private --> Call["call/<br/>CallProvider + backup path"]
+    Private --> Music["music/<br/>MusicProvider"]
+    Private --> Lock["layout/AppLock<br/>+ lib/pin.ts"]
     App --> Pages["pages/"]
     Pages --> Layout["components/layout/"]
+    Pages --> HomeCards["components/home/"]
+    HomeCards --> Hooks
     Pages --> FX["components/fx/"]
     Pages --> Games["components/games/"]
     Pages --> Cam["components/chat/"]
@@ -311,7 +330,7 @@ flowchart TD
 | `ice.mjs` | Hands out call routes: free STUN, plus TURN from Cloudflare (`CLOUDFLARE_TURN_*`, credentials cached for 12 hours) or any TURN service (`TURN_URLS`…). |
 | `kv.mjs` | The optional free database (Upstash Redis, REST API). Stores only "closed" records and each room's two device ids. |
 | `music.mjs` | Reads the music folder and returns `{ songs: [{ id, url, title }] }`, sorted A–Z. The title is the file name without `.mp3` (underscores become spaces). |
-| `index.mjs` | Production: serves `dist/` with a strict Content-Security-Policy and other security headers, gzip, long-term caching, **partial (Range) answers for music**, `/music/manifest.json`, a `/healthz` check, plus the relay. |
+| `index.mjs` | Production: serves `dist/` with a strict Content-Security-Policy and other security headers, Brotli or gzip (kept in memory after the first time), long-term caching, **partial (Range) answers for music**, `/music/manifest.json`, a `/healthz` check, plus the relay. |
 
 ### `front-end/src/sync/`: encryption and live sync
 
@@ -331,12 +350,13 @@ flowchart TD
 | --- | --- | --- |
 | `Index.tsx` | `/` | Hero, highlights, feature bento, 3 steps, FAQ, final CTA |
 | `Start.tsx` | `/start` | Create / Join cards → forms → secret code with Copy / Share / QR → "partner joined" |
-| `Dashboard.tsx` | `/dashboard` | Invite card (until your partner joins), 3D heart, days together, anniversary ring, mood, love note, missing you, call buttons, live room cards |
+| `Dashboard.tsx` | `/dashboard` | Invite card (until your partner joins), both photos, days together, years, anniversary and next milestone (hearts on the day), 3D heart, Missing you / Thumb kiss / Video / Voice buttons, question of the day, countdown, notes, mood, love note, live room cards |
 | `Chat.tsx` | `/chat` | Header with online / typing / last seen and call buttons, messages with ticks, photos, videos, camera, emoji; opens at the newest message |
 | `Gallery.tsx` | `/gallery` | Upload many photos, masonry grid, viewer, "Show Kabir", voice chat |
 | `Canvas.tsx` | `/canvas` | Sticky toolbar (pen, neon, eraser, stickers, scroll, colours, sizes, photo), a shared board that grows |
 | `Games.tsx` | `/games` | 8 game cards with Invite → waiting → playing → End game |
 | `MusicPlayer.tsx` | `/music` | Vinyl, shared controls, volume, searchable playlist, "Add your songs" help |
+| `Profile.tsx` | `/profile` | Banner + photo (add / change / remove), name and together-since form, stats, secret code (reveal, copy, share link), PIN lock (set, change, off, lock now), notifications, Log out, Close room |
 | `NotFound.tsx` | anything else | Broken-heart 404 |
 
 ### `front-end/src/call/` and `front-end/src/music/`
@@ -353,20 +373,22 @@ flowchart TD
 
 | File | Job |
 | --- | --- |
-| `AppLayout.tsx` | Puts everything together, 3D page turns, scroll reset |
+| `AppLayout.tsx` | Puts everything together: quick page fades (the new page shows at once), scroll reset, log-out dialog, thumb kiss |
 | `RequireRoom.tsx` | No room → `/start`. Also shows a dialog if the room can't be used anymore |
-| `AppLock.tsx` | Optional PIN lock screen + privacy blur in the background |
+| `AppLock.tsx` | `AppLock` locks the instant the page is hidden (not for the app's own photo picker), keeps the app running but `inert` behind the lock; `PinPad` keypad (also used in Profile); `LockScreen` with your photo, wait timer and "Forgot PIN?" |
 | `ConnectionPill.tsx` | "Kabir is here" / "Live" / "Waiting for partner" / "Connecting…" / "Offline · changes saved" |
-| `AppSidebar.tsx` | Desktop sidebar (and the phone "More" menu) |
-| `Topbar.tsx` | Page title, connection pill, search, 🎵 music, 💖 missing you, avatars |
+| `AppSidebar.tsx` | Desktop sidebar (and the phone "More" menu), with a profile card (both photos, days together, anniversary bar) and a Log out button |
+| `Topbar.tsx` | Page title, connection pill, search, 🎵 music, 💖 missing you, and the account menu on your photo (Profile, Lock now, Log out) |
 | `MobileNav.tsx` | Floating bottom dock |
-| `CommandMenu.tsx` | `Ctrl + K` quick search and actions |
-| `SettingsDialog.tsx` | Name, shared date, secret code, notifications, PIN lock, close room (online only), leave on this phone |
-| `PageHeader.tsx`, `EmptyState.tsx`, `InitialAvatar.tsx`, `PageLoader.tsx` | Small shared pieces |
+| `CommandMenu.tsx` | `Ctrl + K` quick search and actions (incl. thumb kiss, Profile, Lock now, Log out) |
+| `LogoutDialog.tsx` | "Log out of this phone?" with a copy-your-code reminder |
+| `InitialAvatar.tsx` | `InitialAvatar` (photo or first letter, sizes xs → 2xl, online dot) and `UserAvatar` ("me" or "partner") |
+| `PageHeader.tsx`, `EmptyState.tsx`, `PageLoader.tsx` | Small shared pieces |
 
-### `front-end/src/components/fx/`, `chat/`, `games/`, `landing/`, `ui/`
+### `front-end/src/components/fx/`, `home/`, `chat/`, `games/`, `landing/`, `ui/`
 
 - **fx/**: `Heart3D`, `AuroraBackground`, `FloatingParticles` (pure CSS), `SpotlightCard`, `NumberTicker`, `SlotNumber`, `WordReveal`, `Marquee`, `Meteors`, `OrbitingIcons`, `ProgressRing`, `Equalizer`, `Reveal`, `BurstLayer`.
+- **home/**: `QuestionCard` (question of the day, past answers), `MeetCard` (next time together countdown), `NoteCard` (notes for each other), `ThumbKiss` (full-screen touch pad, live signals, invite pop-up).
 - **chat/**: `CameraCapture` (live preview, photo / video, clips up to 2 minutes, flip camera).
 - **games/**: `TicTacToe`, `ConnectFour`, `CoupleQuiz`, `RockPaperScissors`, `NeverHaveIEver`, `TruthOrDare`, `MemoryMatch`, `WouldYouRather`, all shared and two-player, + `new-game.ts`.
 - **landing/**: `FeatureDemos`.
@@ -387,7 +409,10 @@ flowchart TD
 | Best call quality on strict networks | Set `CLOUDFLARE_TURN_KEY_ID` + `CLOUDFLARE_TURN_API_TOKEN` on the server (see `.env.example`) |
 | Make "Close room" survive restarts | Set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` on the server |
 | Add a game | A component in `src/components/games/`, a fresh state in `new-game.ts`, a column in `src/sync/engine.ts`, a card in `src/pages/Games.tsx`, a name in `GAME_NAMES` |
-| Change how long the phone stays unlocked | `src/components/layout/AppLock.tsx` (`LOCK_AFTER_MS`) |
+| Change the PIN lock (when it locks, tries, wait) | `src/components/layout/AppLock.tsx` + `src/lib/pin.ts` (`MAX_TRIES`, `WAIT_MS`) |
+| Add or change the questions of the day | `front-end/src/lib/content.ts` (`DAILY_QUESTIONS`) |
+| Change milestones | `front-end/src/lib/time.ts` (`MILESTONES`) |
+| Change the profile photo size | `front-end/src/lib/media.ts` (`avatarFromFile`) |
 | Add a new shared feature | Add a column in `src/sync/engine.ts` (`COLUMNS`), then use `useSyncedList` / `useSyncedDoc` |
 | Add a new room (page) | `src/pages/MyRoom.tsx` + a route in `src/App.tsx` + a menu item in `src/lib/nav.ts` |
 | Change rate limits, message size or memory caps | `front-end/server/relay.mjs` (`LIMITS`) and `server/store.mjs` (`STORE_LIMITS`) |

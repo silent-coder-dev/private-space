@@ -21,8 +21,8 @@ Create a room in one browser window and join it from a private window (or a seco
 | `npm run build` | Production build into `dist/` |
 | `npm start` | Production server (`server/index.mjs`): `dist/` + relay + security headers |
 | `npm run preview` | Preview the production build with Vite (relay included) |
-| `npm test` | Unit, page and relay tests (Vitest) |
-| `npm run test:e2e` | Two-browser Playwright tests (run `npx playwright install chromium` once first) |
+| `npm test` | 99 unit, page and relay tests (Vitest) |
+| `npm run test:e2e` | 18 two-browser Playwright tests, desktop + phone (run `npx playwright install chromium` once first) |
 | `npm run typecheck` | TypeScript check |
 | `npm run lint` | ESLint (app + server) |
 
@@ -32,17 +32,19 @@ Create a room in one browser window and join it from a private window (or a seco
 | --- | --- |
 | `public/music/` | 🎵 Put your own songs here. They show up in the Music room |
 | `public/` | Also: app icons, `manifest.webmanifest` (install on the home screen), `sw.js` (notifications only, caches nothing), `call-audio-worklet.js` (call audio for the backup path) |
-| `doc/` | The 5 project guides (problem, approaches, design, flowcharts, directory map) + screenshots |
-| `src/pages/` | One file per screen (landing, start, home, chat, gallery, canvas, games, music, 404) |
+| `doc/` | The 5 project guides (problem, approaches, design, flowcharts, directory map), `BUILD-PROMPT.md` + screenshots |
+| `src/pages/` | One file per screen (landing, start, home, chat, gallery, canvas, games, music, profile, 404) |
+| `src/PrivateArea.tsx` | Everything behind the secret code (room guard, PIN lock, calls, music, layout), loaded only once you're in a room |
 | `src/sync/` | Secret codes + encryption, the shared-data engine (saved in IndexedDB, all-or-nothing), the live WebSocket client, hooks |
 | `src/call/` | Voice & video calls: WebRTC with live route sharing and repair, plus the encrypted backup path through the server |
 | `src/music/` | One music player for the whole app, synced on both phones, + the 🎵 top-bar controls |
-| `src/context/` | Room (create / join / leave / close / presence / pop-ups / notifications) and space (profiles) providers |
+| `src/context/` | Room (create / join / leave / close / presence / pop-ups / notifications) and space (names, photos, dates, dialogs) providers |
 | `src/components/fx/` | Animated effects (3D heart, aurora, spotlight card, marquee, number ticker, heart burst…) |
 | `src/components/chat/` | Camera for live photos and videos up to 2 minutes |
-| `src/components/layout/` | Sidebar, top bar, connection pill, phone dock, quick search, settings (PIN lock, notifications, close room), room guard |
+| `src/components/layout/` | Sidebar (with your profile card + Log out), top bar (account menu), avatars with photos, connection pill, phone dock, quick search, instant PIN lock + keypad, log-out dialog, room guard |
+| `src/components/home/` | Home cards: question of the day, next-time-together countdown, notes for each other, thumb kiss |
 | `src/components/games/` | The 8 games + `new-game.ts` (fresh game states) |
-| `src/lib/` | IndexedDB + local storage, photos / videos, notifications, dates, game rules, words |
+| `src/lib/` | IndexedDB + local storage, photos / videos / profile photos, PIN hashing, notifications, dates + milestones, game rules, words + daily questions |
 | `src/test/` | Vitest tests (incl. the real relay server) |
 | `server/` | `relay.mjs` (rooms, locks, limits, close room, call backup), `store.mjs` (encrypted events in memory until both phones have them), `ice.mjs` (call routes / TURN), `kv.mjs` (optional free database), `music.mjs` (song list), `index.mjs` (production server) |
 | `e2e/` | Playwright tests (two browsers, real calls) |

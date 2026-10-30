@@ -1,4 +1,4 @@
-import { Gamepad2, Heart, House, ImageUp, Palette, Phone, Settings2, Video } from "lucide-react";
+import { Fingerprint, Gamepad2, Heart, House, ImageUp, Lock, LogOut, Palette, Phone, Settings2, Video } from "lucide-react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,10 +14,12 @@ import { useCall } from "@/call/call";
 import { useSpace } from "@/context/space";
 import { useMissYou } from "@/hooks/use-miss-you";
 import { NAV_ITEMS } from "@/lib/nav";
+import { useAppLock } from "@/lib/pin";
 
 /** Ctrl/⌘ + K quick search for pages and actions. */
 export function CommandMenu() {
-  const { commandOpen, setCommandOpen, setSettingsOpen, profile } = useSpace();
+  const { commandOpen, setCommandOpen, setLogoutOpen, setThumbKissOpen, profile } = useSpace();
+  const { enabled: pinOn, lockNow } = useAppLock();
   const missYou = useMissYou();
   const call = useCall();
   const navigate = useNavigate();
@@ -51,7 +53,10 @@ export function CommandMenu() {
     { label: "Add photos", hint: "Gallery", icon: ImageUp, action: () => navigate("/gallery") },
     { label: "Draw together", hint: "Canvas", icon: Palette, action: () => navigate("/canvas") },
     { label: "Invite to a game", hint: "Games", icon: Gamepad2, action: () => navigate("/games") },
-    { label: "Profile, room code & settings", hint: "Settings", icon: Settings2, action: () => setSettingsOpen(true) },
+    { label: "Thumb kiss", hint: profile.partner, icon: Fingerprint, action: () => setThumbKissOpen(true) },
+    { label: "Profile, photo, room code & settings", hint: "Profile", icon: Settings2, action: () => navigate("/profile") },
+    ...(pinOn ? [{ label: "Lock now", hint: "PIN", icon: Lock, action: lockNow }] : []),
+    { label: "Log out of this phone", hint: "Account", icon: LogOut, action: () => setLogoutOpen(true) },
     { label: "Open the welcome page", hint: "Landing", icon: House, action: () => navigate("/") },
   ];
 

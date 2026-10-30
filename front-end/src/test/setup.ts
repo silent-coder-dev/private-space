@@ -57,6 +57,11 @@ if (typeof window !== "undefined") {
   Element.prototype.scrollTo = function scrollTo() {};
   Element.prototype.scrollIntoView = function scrollIntoView() {};
   Element.prototype.hasPointerCapture = () => false;
+  // jsdom can't play sound; the music player only needs these to exist.
+  HTMLMediaElement.prototype.play = () => Promise.resolve();
+  HTMLMediaElement.prototype.pause = () => {};
+  // Same for drawing: jsdom has no 2D canvas (it returns null, like here, after a warning).
+  HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
 
   afterEach(() => {
     cleanup();

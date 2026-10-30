@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Maximize2, Mic, MicOff, Minimize2, Phone, PhoneOff, ShieldCheck, SwitchCamera, Video, VideoOff, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { InitialAvatar } from "@/components/layout/InitialAvatar";
+import { UserAvatar } from "@/components/layout/InitialAvatar";
 import { useSpace } from "@/context/space";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/lib/time";
@@ -106,7 +106,7 @@ export function CallOverlay() {
           >
             <span className="relative">
               <span className="absolute inset-0 animate-ripple rounded-full bg-success/40" />
-              <InitialAvatar name={profile.partner} size="sm" variant="secondary" />
+              <UserAvatar who="partner" size="sm" />
             </span>
             <span className="text-sm">
               {label ?? (
@@ -157,7 +157,7 @@ export function CallOverlay() {
                     <motion.div animate={{ rotateY: [0, 12, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative mx-auto w-fit">
                       <span className="absolute inset-0 animate-ripple rounded-full bg-primary/40" />
                       <span className="absolute inset-0 animate-ripple rounded-full bg-secondary/30 [animation-delay:1.2s]" />
-                      <InitialAvatar name={profile.partner} size="xl" variant="secondary" />
+                      <UserAvatar who="partner" size="2xl" />
                     </motion.div>
                     <p className="font-heading text-3xl font-bold">{profile.partner}</p>
                     <p className="text-muted-foreground">{label ?? <Timer since={call.startedAt} />}</p>

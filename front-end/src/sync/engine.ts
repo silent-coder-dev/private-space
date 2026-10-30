@@ -43,6 +43,12 @@ export const COLUMNS = {
   strokes: { kind: "list", flip: flipField("by") },
   stickers: { kind: "list", flip: flipField("by") },
   member: { kind: "doc", flipId: true },
+  /** Each person's answers to the question of the day (me / partner). */
+  daily: { kind: "doc", flipId: true },
+  /** Each person's note for the other one's Home screen (me / partner). */
+  note: { kind: "doc", flipId: true },
+  /** "Next time together" countdown. */
+  meet: { kind: "doc" },
   read: { kind: "doc", flipId: true },
   couple: { kind: "doc" },
   player: { kind: "doc" },

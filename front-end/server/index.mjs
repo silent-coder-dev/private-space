@@ -18,7 +18,7 @@ import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import http from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { gzipSync } from "node:zlib";
+import { brotliCompressSync, constants as zlib, gzipSync } from "node:zlib";
 import { createIceProvider } from "./ice.mjs";
 import { createKv } from "./kv.mjs";
 import { listMusic } from "./music.mjs";
@@ -57,7 +57,8 @@ const MIME = {
   ".webmanifest": "application/manifest+json",
 };
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", ".webmanifest"]);
-const gzipCache = new Map();
+/** Compressed files, made once and kept (key: "br:" or "gzip:" + path). */
+const compressedCache = new Map();
 
 const securityHeaders = (/** @type {http.IncomingMessage} */ req) => {
   const host = req.headers.host ?? "";
@@ -127,14 +128,18 @@ const server = http.createServer((req, res) => {
     Vary: "Accept-Encoding",
   };
 
-  const acceptsGzip = /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""));
-  if (acceptsGzip && COMPRESSIBLE.has(ext)) {
-    let body = gzipCache.get(file);
+  // Brotli (smallest) when the browser supports it, otherwise gzip.
+  const accepted = String(req.headers["accept-encoding"] ?? "");
+  const encoding = /\bbr\b/.test(accepted) ? "br" : /\bgzip\b/.test(accepted) ? "gzip" : null;
+  if (encoding && COMPRESSIBLE.has(ext)) {
+    const key = `${encoding}:${file}`;
+    let body = compressedCache.get(key);
     if (!body) {
-      body = gzipSync(readFileSync(file));
-      gzipCache.set(file, body);
+      const raw = readFileSync(file);
+      body = encoding === "br" ? brotliCompressSync(raw, { params: { [zlib.BROTLI_PARAM_QUALITY]: 11 } }) : gzipSync(raw, { level: 9 });
+      compressedCache.set(key, body);
     }
-    res.writeHead(200, { ...headers, "Content-Encoding": "gzip", "Content-Length": body.length });
+    res.writeHead(200, { ...headers, "Content-Encoding": encoding, "Content-Length": body.length });
     res.end(req.method === "HEAD" ? undefined : body);
     return;
   }

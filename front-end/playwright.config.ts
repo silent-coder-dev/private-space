@@ -5,6 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   // Two- and four-browser tests need more than the default 30 s.
   timeout: 90_000,
+  // Many browsers run at once, so a page can take a few seconds to appear on a busy machine.
+  expect: { timeout: 10_000 },
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: "http://localhost:8080",

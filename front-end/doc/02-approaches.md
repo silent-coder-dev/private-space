@@ -97,7 +97,9 @@ flowchart LR
 | **Sync engine + client** | Shared data (newest wins), outbox, catch-up, encryption, "I have it" receipts | `src/sync/` |
 | **Call provider** | Ringing, WebRTC, repairing a dropped line, switching to the backup path | `src/call/` |
 | **Music provider** | One player for the whole app, synced timeline, lock-screen controls | `src/music/` |
-| **App lock** | Optional PIN, privacy blur | `src/components/layout/AppLock.tsx` |
+| **Private area** | Everything behind the secret code, loaded only after you enter a room | `src/PrivateArea.tsx` |
+| **App lock** | Optional PIN that locks the instant you leave, keypad lock screen, privacy blur | `src/components/layout/AppLock.tsx`, `src/lib/pin.ts` |
+| **Home cards** | Question of the day, countdown, notes, thumb kiss | `src/components/home/` |
 | **Relay** | Rooms, auth check, 2-device lock, rate limits, close room, call frames | `server/relay.mjs` |
 | **Room store** | Encrypted events in memory, forgotten once both phones have them | `server/store.mjs` |
 | **Call routes / database** | TURN credentials; closed rooms + device lock | `server/ice.mjs`, `server/kv.mjs` |
@@ -126,8 +128,9 @@ The code is 16 random characters (80 bits), made **on your phone** and **never s
 | **Close room = delete everything** | You must be online (the server has to be told). The server deletes the room, records "closed" (in memory and, if set up, in the database), and tells both phones to wipe their copy (IndexedDB + local storage). A phone that was offline wipes itself the moment it reconnects, and nobody can ever re-create a closed room. |
 | **The server forgets** | Rooms live in memory only (unless you set `USSPACE_DATA_DIR`). Each phone says "I've safely saved up to message N"; once **both** have, the server drops those messages. It only holds what's still on its way. |
 | **Memory limits** | Max 80 MB waiting per room and 320 MB for the whole server, so one room can't fill a small free server. |
-| **PIN lock** | An optional 4–8 digit PIN per phone, hashed with PBKDF2-SHA256 (150 000 rounds). Asked on open and after 30 seconds in the background. 5 wrong tries → wait 30 seconds. |
-| **Privacy blur** | The app blurs itself when it goes to the background (app switcher, screen sharing). |
+| **Instant PIN lock** | An optional 4–8 digit PIN per phone, hashed with PBKDF2-SHA256 (150 000 rounds). It is asked when the app opens, and the app locks **the instant** the page is hidden: switching tabs, minimising the browser, going to the home screen or locking the phone. The lock screen is drawn *before* the phone takes its app-switcher picture, so the picture shows the lock, not your chat. Behind the lock the app keeps running (a call or a song doesn't stop), but nothing can be seen, clicked or read by a screen reader, and pop-ups are hidden. Choosing a photo or opening the camera from inside UsSpace doesn't count as leaving. 5 wrong tries → wait 30 seconds, and a reload doesn't skip the wait. Forgot the PIN? Log out of this phone and join again with the secret code. |
+| **Privacy blur** | Without a PIN, the app still blurs itself when it goes to the background (app switcher, screen sharing). |
+| **Profile photos without a database** | The photo is cropped to a 320 px square on your phone, then shared **end-to-end encrypted** with your partner like any other room data. It is kept only on your two phones; the server forgets it once both have it. Closing the room deletes it; logging out deletes your phone's copy. |
 | **Private notifications** | Notifications say *who* (e.g. "💬 Kabir — New message") but never *what*. |
 | **Private calls** | Call set-up travels encrypted through the room. Direct audio/video use WebRTC's DTLS-SRTP encryption. The backup path is sealed with your room key, so the server only passes along bytes it can't read. |
 | **TURN keys stay on the server** | TURN credentials are handed out only to phones that are in a room. |
@@ -158,7 +161,7 @@ Everything shared is a small **item** (one message, one photo, one stroke, the m
 | **Room "epochs"** | Each time the server creates a room it gives it a new random epoch. If a phone sees a different epoch, the server lost the room (restart): the phone downloads everything again and re-uploads what it has, so nothing is lost. |
 | **Paced uploads with retry** | Up to 20 uploads at a time; anything the server can't take right now (busy, rate limit) is tried again a little later. |
 | **Resync for a new phone** | If a new phone takes a free seat after the server has already forgotten old messages, the server asks the other phone to send everything again. |
-| **Signals** (typing, hearts, call messages) | Sent live, never stored. |
+| **Signals** (typing, hearts, thumb-kiss touches, call messages) | Sent live, never stored. |
 
 ---
 
@@ -191,6 +194,11 @@ Extra details:
 | **Games** | A shared `game` item: *invited → playing*. Your partner gets a pop-up (or notification) anywhere. All 8 games are two-player and keep turns. Secret answers (Rock Paper Scissors, Never Have I Ever, Would You Rather, the quiz) are revealed only when both have answered. Connect Four checks four in a row across, down and both diagonals. Questions come in the **same shuffled order on both phones** from a shared seed. |
 | **Music** | The server lists `public/music` at `/music/manifest.json`. **One player for the whole app**, controlled from the Music page or the 🎵 button, with lock-screen and headphone controls. Both phones play their own copy, kept in step by a shared timeline. Songs stream in small parts only while playing. |
 | **Notifications + install** | A web app manifest and icons let you **add UsSpace to your home screen**. A small service worker shows notifications while the app is in the background and opens the right page when you tap one. It caches nothing, so you always get the newest version. |
+| **Question of the day** | 50 questions; the day's question is picked from the **UTC day number**, so both phones show the same one. Each phone keeps its answers in its own shared note (`daily`). The page shows your partner's answer only when *you* have answered today. Answers older than 60 days are dropped. |
+| **Thumb kiss** | While the pad is open, your thumb's position is sent as a live signal about 14 times a second (and "still here" every 0.5 s). Your partner's thumb fades out 1.5 s after the last signal. When the two thumbs are close (12% of the pad), both phones vibrate and show a kiss with hearts. Opening the pad sends your partner an invite. |
+| **Countdown + notes** | `meet` is one shared note (the date and a label); both phones count down to it. `note` keeps one short note per person. A new note or a new date shows a pop-up on the other phone (and a notification in the background). |
+| **Milestones** | 100, 200, 300, 500, 750, 1,000, 1,500 … 10,000 days (3,650 = ten years). The Home page shows the next one, and celebrates with hearts once on the day you reach one. |
+| **Speed** | Only the landing page loads first; everything behind the secret code (and each room) is a separate file, fetched quietly in the background while you look around. A new page appears **at once** with a quick 0.18 s fade, instead of waiting for the old page to fade out first (page switches went from 0.4–1 s to 0.1–0.3 s). Phones get a lighter glass blur and a still background glow. The server sends **Brotli** (or gzip) compressed files. |
 | **3D UI** | A CSS 3D heart made of 16 layers, 3D page turns, tilting spotlight cards, flipping game cards and falling Connect Four hearts. Heavy effects calm down for people who prefer less motion. |
 
 ---
@@ -213,13 +221,30 @@ UsSpace works without any database. Adding the free one ([Upstash Redis](https:/
 | Room | How it works (simple) |
 | --- | --- |
 | **Start** | *Create*: name + "together since" → a code is made on your phone → Copy / Share / QR. *Join*: code + name → you're in, and the room locks. |
-| **Home** | Days together, the 3D heart, anniversary countdown, mood (shared live), love note of the day, "I'm missing you", video and voice call buttons, and live cards for every room. |
+| **Home** | Both photos, days together, years, anniversary and the next **milestone**, the 3D heart, four big buttons (Missing you, Thumb kiss, Video call, Voice call), the **question of the day**, the **countdown to your next time together**, **notes for each other**, mood (shared live, with labels), love note of the day, and live cards for every room. On a computer it's two columns that grow on their own, so no card is stretched. |
 | **Chat** | Live messages with photos, videos (camera or gallery), emoji, reactions, typing and seen ticks. It opens at the newest message and stays there while photos load. Scroll up and a "Latest messages" button takes you back down. |
 | **Gallery** | Upload many photos at once (shrunk to 1600 px). Masonry grid with 3D tilt, full-screen viewer with swipe, "Show Kabir", save, delete with undo, and a voice-chat button. |
 | **Canvas** | Draw, use neon, erase, place stickers, add photos, undo your own strokes, clear for both (with a warning), save the whole board as PNG. It grows as you draw; "More space" adds room by hand. |
 | **Games** | Choose one of 8 games → invite → your partner joins → play. "End game" goes back to the list. |
 | **Music** | Your songs, search, a spinning record, shared play / pause / seek / next / shuffle / repeat, and volume per phone. |
-| **Settings** | Your name, the shared date, the secret code (hidden, reveal, copy), notifications, PIN lock, **Close room & delete everything**, or leave on this phone only. |
+| **Profile** | Your photo (add, change, remove), your name and the shared together-since date, days / years / days to the anniversary, your partner's status, the secret code (hidden, reveal, copy, share link), **PIN lock** (set, change, turn off, lock now), notifications, **Log out of this phone**, and **Close room & delete everything**. Open it from your photo at the top, the sidebar card, or quick search. |
+| **Log out** | A separate button (sidebar, account menu, Profile, lock screen). It asks first and reminds you to save your secret code; it removes UsSpace from this phone only, and your partner keeps everything. |
+
+---
+
+### Where the v5 ideas came from
+
+We read reviews and lists of popular couple apps and long-distance tips, then kept the features couples mention most that can be free and private:
+
+| Feature in UsSpace | Seen in |
+| --- | --- |
+| Question of the day (answers open when both answered) | Paired, Agapé, Flamme |
+| Thumb kiss | Couple (Pair), Thumbkiss |
+| Countdown to the next visit, milestones | Between, long-distance guides |
+| Notes for each other | Long-distance tips (leave little notes) |
+| Profile photos + private room for two | Between, Couple |
+
+Sources: [Flamme: alternatives to Paired](https://www.flamme.app/the-7-best-couples-app-alternatives-to-paired-updated-2026) · [Flamme: new relationship apps 2026](https://www.flamme.app/top-new-emerging-relationship-apps-in-2026) · [Connected Couples: best couples apps 2026](https://connectedcouples.app/blog/best-couples-apps-2026) · [Thumbkiss](https://mwm.ai/apps/thumbkiss-couple-touch/6754659424) · [Autostraddle: the Couple app review](https://www.autostraddle.com/couple-me-app-is-co-dependent-also-wonderful-the-giant-group-review-213632/?all=1) · [Grazia: long-distance relationship apps](https://graziadaily.co.uk/life/real-life/long-distance-relationship-apps).
 
 ---
 
@@ -231,9 +256,9 @@ UsSpace works without any database. Adding the free one ([Upstash Redis](https:/
 | --- | --- | --- |
 | `npm run typecheck` | Types | ✅ |
 | `npm run lint` | Code rules (app + server) | ✅ 0 errors (only warnings in generated UI files) |
-| `npm test` | **96 tests**: encryption, sync engine (incl. safe saving), relay server (incl. forgetting delivered messages, epochs, resync, call frames, TURN, the database across restarts, the memory cap), dates, all game rules, call voice encoding, storage, every page, game invites, the growing canvas | ✅ |
-| `npm run test:e2e` | **16 real-browser tests** (8 × desktop + phone): create/join, live chat, wrong code + full room, every room opens, game invite, **a video call phone to phone, a call through the server (voice both ways + video) and the automatic switch when no direct line works** | ✅ |
-| `npm run build` / `npm start` | Production build and server (security headers, gzip, seekable music, health check) | ✅ |
+| `npm test` | **99 tests**: encryption, sync engine (incl. safe saving), relay server (incl. forgetting delivered messages, epochs, resync, call frames, TURN, the database across restarts, the memory cap), dates, all game rules, call voice encoding, storage, every page, game invites, the growing canvas, **the question of the day (hidden until you answer), the Profile page, and the instant PIN lock (locks on a hidden page, wrong PIN, right PIN)** | ✅ |
+| `npm run test:e2e` | **18 real-browser tests** (9 × desktop + phone): create/join, live chat, wrong code + full room, every room opens (incl. Profile), **profile photo + question of the day + thumb kiss between two browsers, and the instant PIN lock**, game invite, **a video call phone to phone, a call through the server (voice both ways + video) and the automatic switch when no direct line works** | ✅ |
+| `npm run build` / `npm start` | Production build and server (security headers, Brotli/gzip, seekable music, health check) | ✅ |
 
 ### Bugs fixed (highlights)
 
@@ -252,6 +277,12 @@ UsSpace works without any database. Adding the free one ([Upstash Redis](https:/
 | 4 | A server restart forgot that a room was closed, so an offline phone could bring it back | The optional database remembers closed rooms |
 | 4 | The server kept every photo and video in memory forever (a risk on a 512 MB free server) | It forgets what both phones have, with per-room and total memory caps |
 | 4 | The chat could open half-way up when photos loaded late | Pinned to the newest message while things load |
+| 5 | **Switching pages felt slow** (0.4–1 s): the old page had to fade out before the new one could start | The new page appears at once; the landing and private area load separately (first file 332 KB → 160 KB) |
+| 5 | The PIN was asked only after 30 s away, and the app-switcher picture could show the chat | Locks the instant the page is hidden, drawn before the picture is taken |
+| 5 | Pop-ups could show on top of the lock screen; choosing a photo locked the app | Pop-ups hidden while locked; the photo picker and camera don't count as leaving |
+| 5 | "Missing you" button and mood had the same name for screen readers | Clear, different labels |
+| 5 | On a computer, Home cards were stretched to match their neighbour, leaving empty space | Two independent columns |
+| 5 | Heavy glass blur and a moving glow made cheap phones stutter | Lighter blur and a still glow on phones |
 
 ---
 
@@ -262,6 +293,7 @@ UsSpace works without any database. Adding the free one ([Upstash Redis](https:/
 | Push notifications (Web Push) | Ring a phone even when UsSpace is fully closed |
 | Voice notes in chat | Quick and sweet |
 | Encrypt the phone's copy with the PIN | Stronger protection if someone unlocks the phone |
+| Shared bucket list / date ideas | Plan things to do together |
 | Light theme | A soft "morning" look |
 
 **Back:** [← 1 · Problem & Solution](01-problem-and-solution.md) · **Next:** [3 · Design →](03-design.md)

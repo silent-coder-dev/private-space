@@ -1,21 +1,27 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Heart, Search } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Heart, Lock, LogOut, Search, UserRound } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ConnectionPill } from "@/components/layout/ConnectionPill";
-import { InitialAvatar } from "@/components/layout/InitialAvatar";
+import { UserAvatar } from "@/components/layout/InitialAvatar";
 import { useSpace } from "@/context/space";
 import { useMissYou } from "@/hooks/use-miss-you";
 import { TopbarMusic } from "@/music/MusicControls";
 import { findNavItem } from "@/lib/nav";
+import { useAppLock } from "@/lib/pin";
+import { daysBetween, parseLocalDate } from "@/lib/time";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 
 export function Topbar() {
   const { pathname } = useLocation();
   const item = findNavItem(pathname);
-  const { profile, setCommandOpen, setSettingsOpen } = useSpace();
+  const { profile, setCommandOpen, setLogoutOpen } = useSpace();
+  const { enabled: pinOn, lockNow } = useAppLock();
+  const navigate = useNavigate();
+  const days = Math.max(0, daysBetween(parseLocalDate(profile.since), new Date()));
   const missYou = useMissYou();
   const sendHeart = (e: React.MouseEvent<HTMLButtonElement>) => missYou(e.currentTarget);
 
@@ -81,15 +87,42 @@ export function Topbar() {
           <Heart className="fill-primary" />
         </Button>
 
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Profile and settings"
-          className="flex items-center rounded-full p-0.5 transition-transform hover:scale-105"
-        >
-          <InitialAvatar name={profile.me} size="sm" />
-          <InitialAvatar name={profile.partner} size="sm" variant="secondary" className="-ml-2.5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Your profile and account"
+              className="flex items-center rounded-full p-0.5 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <UserAvatar who="me" size="sm" />
+              <UserAvatar who="partner" size="sm" className="-ml-2.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-2xl border-white/10 bg-popover/95 p-1.5 backdrop-blur-xl">
+            <div className="flex items-center gap-3 rounded-xl p-2">
+              <UserAvatar who="me" size="md" />
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{profile.me}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  With {profile.partner} · {days.toLocaleString()} days
+                </p>
+              </div>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => navigate("/profile")} className="gap-2 rounded-lg py-2">
+              <UserRound className="h-4 w-4" /> Profile & settings
+            </DropdownMenuItem>
+            {pinOn && (
+              <DropdownMenuItem onSelect={lockNow} className="gap-2 rounded-lg py-2">
+                <Lock className="h-4 w-4" /> Lock now
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setLogoutOpen(true)} className="gap-2 rounded-lg py-2 text-destructive focus:text-destructive">
+              <LogOut className="h-4 w-4" /> Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

@@ -129,6 +129,12 @@ export function RoomProvider({ children, autoConnect = true }: { children: React
         } else if (g.status === "playing" && g.by === "me" && where !== "/games") {
           toast(`🎮 ${name} joined your game!`, { action: { label: "Play", onClick: () => navigate("/games") } });
         }
+      } else if (put.col === "note" && put.id === "partner") {
+        toast(`📝 ${name} left you a note`, { action: { label: "Read", onClick: () => navigate("/dashboard") } });
+        void notifyPhone(`📝 ${name} left you a note`, "Open UsSpace to read it", { tag: "note" });
+      } else if (put.col === "meet" && (put.data as { at?: number }).at) {
+        toast(`📅 ${name} set your next time together`, { action: { label: "See", onClick: () => navigate("/dashboard") } });
+        void notifyPhone(`📅 ${name} set your next time together`, "A new countdown is on your Home", { tag: "meet" });
       } else if (put.col === "gview" && where !== "/gallery") {
         toast(`👀 ${name} wants to show you a photo`, { action: { label: "Look", onClick: () => navigate("/gallery?look=1") } });
       }

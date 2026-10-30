@@ -42,6 +42,27 @@ export async function compressPhoto(file: File | Blob, max = 1280, quality = 0.8
   }
 }
 
+/**
+ * A profile photo: cropped to a centred square and shrunk to 320 px (about 20–40 KB),
+ * small enough to share instantly with your partner.
+ */
+export async function avatarFromFile(file: File | Blob, size = 320): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("That file is not an image.");
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not read the image.");
+    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export async function readVideo(file: File | Blob): Promise<string> {
   if (file.size > MAX_VIDEO_BYTES)
     throw new Error("That video is too big (max 8 MB). Record up to 2 minutes with the camera button, or pick a shorter clip.");

@@ -9,13 +9,16 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useSyncedDoc<MemberDoc>("member", "me", DEFAULT_ME);
   const [partner] = useSyncedDoc<MemberDoc>("member", "partner", DEFAULT_PARTNER);
   const [couple, setCouple] = useSyncedDoc<CoupleDoc>("couple", "doc", DEFAULT_COUPLE);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [thumbKissOpen, setThumbKissOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
 
   const profile = useMemo<Profile>(
     () => ({
       me: me.name || DEFAULT_ME.name,
       partner: partner.name || DEFAULT_PARTNER.name,
+      myPhoto: me.photo || undefined,
+      partnerPhoto: partner.photo || undefined,
       since: couple.since || DEFAULT_COUPLE.since,
       mood: me.mood,
       status: me.status,
@@ -34,6 +37,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       if (patch.mood !== undefined) member.mood = patch.mood;
       if (patch.status !== undefined) member.status = patch.status;
       if (patch.away !== undefined) member.away = patch.away;
+      if (patch.photo !== undefined) member.photo = patch.photo ?? undefined;
       if (Object.keys(member).length > 0) setMe((prev) => ({ ...DEFAULT_ME, ...prev, ...member }));
       if (patch.since) setCouple((prev) => ({ ...prev, since: patch.since as string }));
     },
@@ -41,8 +45,8 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ profile, updateProfile, settingsOpen, setSettingsOpen, commandOpen, setCommandOpen }),
-    [profile, updateProfile, settingsOpen, commandOpen],
+    () => ({ profile, updateProfile, logoutOpen, setLogoutOpen, thumbKissOpen, setThumbKissOpen, commandOpen, setCommandOpen }),
+    [profile, updateProfile, logoutOpen, thumbKissOpen, commandOpen],
   );
 
   return <SpaceContext.Provider value={value}>{children}</SpaceContext.Provider>;
